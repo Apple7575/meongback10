@@ -1,0 +1,1410 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>멍백홈 · 유실목격지도</title>
+<style>
+  /* ─── 디자인 토큰 ─────────────────────────────── */
+  :root{
+    --navy:#1D3E6B;          /* 메인 딥블루 */
+    --navy-deep:#142C4E;
+    --navy-soft:#EAF0F8;
+    --bg:#F8F6F2;            /* 웜 오프화이트 */
+    --surface:#FFFFFF;
+    --surface-2:#F2EFE9;
+    --line:#E4E0D7;
+    --ink:#26303C;
+    --ink-soft:#5B6672;
+    --ink-faint:#8B94A0;
+
+    --trust:#1E9E6A;  --trust-bg:#E4F4EC;
+    --pending:#E8842C;--pending-bg:#FBEEDD;
+    --important:#D93F3F;--important-bg:#FBE6E6;
+    --hidden:#8A8F98; --hidden-bg:#EEEFF1;
+
+    --zone:#2E63C0;
+
+    --map-bg:#EFECE3;
+    --map-park:#D3E4C6;
+    --map-park-line:#B7CFA5;
+    --map-water:#C2DBEA;
+    --map-water-line:#9FC4DC;
+    --map-road:#FFFFFF;
+    --map-block:#E3DFD4;
+
+    --radius:14px;
+    --shadow:0 2px 10px rgba(29,62,107,.08);
+    --shadow-lg:0 12px 40px rgba(20,44,78,.22);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --navy:#7FA8E0; --navy-deep:#A9C6EE; --navy-soft:#1E2A3C;
+      --bg:#161A21; --surface:#1F252E; --surface-2:#262D38;
+      --line:#333B47; --ink:#E8EAEE; --ink-soft:#A6AEB9; --ink-faint:#767F8B;
+      --trust:#3FBF8A; --trust-bg:#173328;
+      --pending:#F0964B; --pending-bg:#3A2A18;
+      --important:#F06A6A; --important-bg:#3B1F1F;
+      --hidden:#8A93A0; --hidden-bg:#2A303A;
+      --zone:#6E9BE0;
+      --map-bg:#232830; --map-park:#2C3B2C; --map-park-line:#3C5138;
+      --map-water:#24384A; --map-water-line:#31536E;
+      --map-road:#3A4250; --map-block:#2C333E;
+      --shadow:0 2px 10px rgba(0,0,0,.35);
+      --shadow-lg:0 12px 40px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="light"]{
+    --navy:#1D3E6B; --navy-deep:#142C4E; --navy-soft:#EAF0F8;
+    --bg:#F8F6F2; --surface:#FFFFFF; --surface-2:#F2EFE9;
+    --line:#E4E0D7; --ink:#26303C; --ink-soft:#5B6672; --ink-faint:#8B94A0;
+    --trust:#1E9E6A; --trust-bg:#E4F4EC;
+    --pending:#E8842C; --pending-bg:#FBEEDD;
+    --important:#D93F3F; --important-bg:#FBE6E6;
+    --hidden:#8A8F98; --hidden-bg:#EEEFF1;
+    --zone:#2E63C0;
+    --map-bg:#EFECE3; --map-park:#D3E4C6; --map-park-line:#B7CFA5;
+    --map-water:#C2DBEA; --map-water-line:#9FC4DC;
+    --map-road:#FFFFFF; --map-block:#E3DFD4;
+    --shadow:0 2px 10px rgba(29,62,107,.08);
+    --shadow-lg:0 12px 40px rgba(20,44,78,.22);
+  }
+  :root[data-theme="dark"]{
+    --navy:#7FA8E0; --navy-deep:#A9C6EE; --navy-soft:#1E2A3C;
+    --bg:#161A21; --surface:#1F252E; --surface-2:#262D38;
+    --line:#333B47; --ink:#E8EAEE; --ink-soft:#A6AEB9; --ink-faint:#767F8B;
+    --trust:#3FBF8A; --trust-bg:#173328;
+    --pending:#F0964B; --pending-bg:#3A2A18;
+    --important:#F06A6A; --important-bg:#3B1F1F;
+    --hidden:#8A93A0; --hidden-bg:#2A303A;
+    --zone:#6E9BE0;
+    --map-bg:#232830; --map-park:#2C3B2C; --map-park-line:#3C5138;
+    --map-water:#24384A; --map-water-line:#31536E;
+    --map-road:#3A4250; --map-block:#2C333E;
+    --shadow:0 2px 10px rgba(0,0,0,.35);
+    --shadow-lg:0 12px 40px rgba(0,0,0,.55);
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+    background:var(--bg); color:var(--ink);
+    font-size:15px; line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit; cursor:pointer; border:none; background:none; color:inherit}
+  input,select,textarea{font:inherit; color:inherit}
+  button:focus-visible,[tabindex]:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+    outline:2px solid var(--navy); outline-offset:2px; border-radius:6px}
+
+  /* ─── 헤더 ─────────────────────────────── */
+  header{
+    position:sticky; top:0; z-index:40;
+    background:var(--surface);
+    border-bottom:1px solid var(--line);
+    padding:0 20px;
+    display:flex; align-items:center; gap:14px; height:60px;
+  }
+  .logo{display:flex; align-items:center; gap:9px; font-weight:800; font-size:18px; color:var(--navy); letter-spacing:-.02em}
+  .logo svg{width:26px;height:26px}
+  .page-name{
+    font-size:13px; color:var(--ink-soft);
+    padding-left:14px; border-left:1px solid var(--line);
+  }
+  .page-name b{color:var(--ink); font-weight:700}
+  .header-right{margin-left:auto; display:flex; align-items:center; gap:10px}
+  .live-chip{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:12.5px; font-weight:700; color:var(--important);
+    background:var(--important-bg); border-radius:99px; padding:5px 12px;
+  }
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--important); animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @media (prefers-reduced-motion: reduce){ .live-dot{animation:none} *{transition:none!important} }
+  .share-btn{
+    display:inline-flex; align-items:center; gap:7px;
+    background:var(--navy); color:#fff; font-weight:700; font-size:13.5px;
+    padding:9px 16px; border-radius:10px;
+  }
+  :root[data-theme="dark"] .share-btn{color:var(--bg)}
+  @media (prefers-color-scheme: dark){ :root:not([data-theme]) .share-btn{color:var(--bg)} }
+  .share-btn:hover{filter:brightness(1.08)}
+
+  /* ─── 화면 탭 ───────────────────────────── */
+  .tabs{
+    position:sticky; top:60px; z-index:38;
+    background:var(--bg);
+    display:flex; gap:8px;
+    max-width:1280px; margin:0 auto; padding:12px 20px 4px;
+  }
+  .tab{
+    position:relative;
+    display:flex; flex-direction:column; align-items:flex-start; gap:1px;
+    padding:8px 16px; border-radius:12px;
+    background:var(--surface); border:1.5px solid var(--line);
+    text-align:left;
+  }
+  .tab .role{font-size:10.5px; font-weight:800; letter-spacing:.05em; color:var(--ink-faint)}
+  .tab .name{font-size:13.5px; font-weight:800; color:var(--ink-soft)}
+  .tab.on{border-color:var(--navy); background:var(--navy-soft)}
+  .tab.on .name{color:var(--navy)}
+  .tab .noti{
+    position:absolute; top:-5px; right:-5px;
+    min-width:19px; height:19px; padding:0 5px; border-radius:99px;
+    background:var(--important); color:#fff;
+    font-size:11px; font-weight:800; line-height:19px; text-align:center;
+    display:none;
+  }
+  .tab .noti.show{display:block}
+
+  .view{display:none}
+  .view.on{display:block}
+
+  /* ─── 레이아웃(지도 화면) ─────────────────── */
+  .layout{
+    display:grid; grid-template-columns:1fr 384px; gap:16px;
+    max-width:1280px; margin:0 auto; padding:12px 20px 32px;
+    align-items:start;
+  }
+  .map-col{display:flex; flex-direction:column; gap:16px; min-width:0}
+
+  /* ─── 지도 ─────────────────────────────── */
+  .map-wrap{
+    position:relative; background:var(--map-bg);
+    border:1px solid var(--line); border-radius:var(--radius);
+    overflow:hidden; box-shadow:var(--shadow);
+  }
+  .map-wrap svg{display:block; width:100%; height:auto}
+  .map-note{
+    position:absolute; top:12px; left:12px;
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+    padding:8px 12px; font-size:12.5px; color:var(--ink-soft);
+    box-shadow:var(--shadow); max-width:min(300px, 62%);
+  }
+  .map-note b{color:var(--navy)}
+  .legend{
+    position:absolute; bottom:12px; left:12px;
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+    padding:9px 12px; font-size:12px; color:var(--ink-soft);
+    box-shadow:var(--shadow);
+    display:grid; gap:5px;
+  }
+  .legend div{display:flex; align-items:center; gap:7px}
+  .lg-dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .lg-zone{width:12px;height:12px;border-radius:3px;flex:none;background:color-mix(in srgb, var(--zone) 22%, transparent);border:1.5px dashed var(--zone)}
+  .lg-star{color:var(--navy);font-size:13px;line-height:1;width:12px;text-align:center}
+
+  /* SVG 지도 내부 */
+  .pin{cursor:pointer}
+  .pin .pin-body{transition:transform .15s ease; transform-origin:center bottom; transform-box:fill-box}
+  .pin:hover .pin-body{transform:scale(1.15)}
+  .time-chip{font-size:12px; font-weight:800; letter-spacing:.01em}
+  .maplabel{font-size:12px; fill:var(--ink-faint); font-weight:600}
+  .maplabel.big{font-size:13px}
+  .trail{stroke-dasharray:7 6; animation:trail 30s linear infinite}
+  @keyframes trail{to{stroke-dashoffset:-260}}
+  @media (prefers-reduced-motion: reduce){.trail{animation:none}}
+  .zone-circle{animation:zonepulse 2.6s ease-in-out infinite}
+  @keyframes zonepulse{0%,100%{opacity:.75}50%{opacity:.4}}
+  @media (prefers-reduced-motion: reduce){.zone-circle{animation:none}}
+
+  /* ─── 서비스 흐름 ───────────────────────── */
+  .flow-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:18px 20px;
+  }
+  .flow-card h2{margin:0 0 4px; font-size:15px; font-weight:800; color:var(--navy)}
+  .flow-card p.sub{margin:0 0 14px; font-size:13px; color:var(--ink-soft)}
+  .flow-steps{display:flex; gap:8px; overflow-x:auto; padding-bottom:6px}
+  .flow-step{
+    flex:none; width:128px; background:var(--surface-2);
+    border:1px solid var(--line); border-radius:12px; padding:10px 12px;
+    position:relative;
+  }
+  .flow-step .n{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:20px;height:20px; border-radius:50%;
+    background:var(--navy); color:var(--bg); font-size:11.5px; font-weight:800;
+    margin-bottom:6px;
+  }
+  :root:not([data-theme="dark"]) .flow-step .n{color:#fff}
+  @media (prefers-color-scheme: dark){ :root:not([data-theme]) .flow-step .n{color:var(--bg)} }
+  .flow-step .t{font-size:12.5px; font-weight:700; line-height:1.35}
+  .flow-step .d{font-size:11.5px; color:var(--ink-soft); margin-top:2px; line-height:1.35}
+  .flow-step::after{
+    content:"›"; position:absolute; right:-9px; top:50%;
+    transform:translateY(-50%); color:var(--ink-faint); font-size:15px; z-index:1;
+  }
+  .flow-step:last-child::after{content:none}
+
+  /* ─── 사이드 패널 ───────────────────────── */
+  .side{display:flex; flex-direction:column; gap:14px; min-width:0}
+  .card{
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--radius); box-shadow:var(--shadow);
+  }
+
+  /* 강아지 카드 */
+  .dog-card{padding:16px; display:grid; gap:12px}
+  .dog-head{display:flex; gap:13px; align-items:center}
+  .dog-photo{
+    width:72px; height:72px; border-radius:18px; flex:none;
+    background:linear-gradient(135deg,#FBE8CF,#F3D6B0);
+    display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--line); overflow:hidden;
+  }
+  .dog-photo svg{width:58px; height:58px}
+  .dog-name-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .dog-name{font-size:19px; font-weight:800; letter-spacing:-.02em}
+  .status-badge{
+    font-size:11.5px; font-weight:800; color:var(--important);
+    background:var(--important-bg); border-radius:99px; padding:3px 10px;
+  }
+  .dog-meta{font-size:13px; color:var(--ink-soft); margin-top:2px}
+  .dog-facts{
+    display:grid; grid-template-columns:1fr 1fr; gap:1px;
+    background:var(--line); border:1px solid var(--line);
+    border-radius:11px; overflow:hidden;
+  }
+  .fact{background:var(--surface-2); padding:8px 12px}
+  .fact .k{font-size:11px; color:var(--ink-faint); font-weight:700; letter-spacing:.04em}
+  .fact .v{font-size:13px; font-weight:700; margin-top:1px; font-variant-numeric:tabular-nums}
+  .caution{
+    background:var(--pending-bg); border:1px solid color-mix(in srgb, var(--pending) 35%, transparent);
+    border-radius:11px; padding:10px 13px; font-size:12.5px; line-height:1.5;
+  }
+  .caution b{color:var(--pending)}
+
+  /* 우선 수색 구역 카드 */
+  .zone-card{padding:15px 16px; border-left:4px solid var(--zone)}
+  .zone-card h3{margin:0 0 6px; font-size:13.5px; font-weight:800; color:var(--zone); display:flex; align-items:center; gap:7px}
+  .zone-card p{margin:0; font-size:13.5px; line-height:1.55}
+  .zone-card p b{color:var(--navy)}
+  .zone-card .basis{margin-top:8px; font-size:11.5px; color:var(--ink-faint)}
+
+  /* 제보 목록 */
+  .report-panel{display:flex; flex-direction:column; min-height:0}
+  .report-head{padding:14px 16px 10px; border-bottom:1px solid var(--line)}
+  .report-head h3{margin:0; font-size:15px; font-weight:800; display:flex; align-items:baseline; gap:8px}
+  .report-head .cnt{font-size:12.5px; color:var(--ink-soft); font-weight:600}
+  .sort-note{font-size:11.5px; color:var(--ink-faint); margin-top:3px}
+  .sort-note b{color:var(--navy); font-weight:700}
+  .filters{display:flex; gap:6px; padding:10px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap}
+  .chip{
+    font-size:12px; font-weight:700; padding:5px 11px; border-radius:99px;
+    background:var(--surface-2); color:var(--ink-soft); border:1px solid var(--line);
+  }
+  .chip.on{background:var(--navy); color:var(--bg); border-color:var(--navy)}
+  :root:not([data-theme="dark"]) .chip.on{color:#fff}
+  @media (prefers-color-scheme: dark){ :root:not([data-theme]) .chip.on{color:var(--bg)} }
+  .report-list{list-style:none; margin:0; padding:8px; display:grid; gap:8px; overflow-y:auto; max-height:520px}
+  .report-item{
+    display:flex; gap:11px; padding:11px 12px;
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    cursor:pointer; text-align:left; width:100%;
+    transition:border-color .15s, background .15s;
+    position:relative;
+  }
+  .report-item:hover{border-color:var(--navy)}
+  .report-item.active{border-color:var(--navy); background:var(--navy-soft)}
+  .report-item.dim{opacity:.55}
+  .thumb{width:52px;height:52px;border-radius:10px;flex:none;overflow:hidden;border:1px solid var(--line)}
+  .thumb svg,.thumb img{width:100%;height:100%;display:block;object-fit:cover}
+  .ri-body{min-width:0; flex:1}
+  .ri-top{display:flex; align-items:center; gap:7px}
+  .seen-time{font-size:14px; font-weight:800; font-variant-numeric:tabular-nums}
+  .badge{font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:99px}
+  .b-trusted{color:var(--trust); background:var(--trust-bg)}
+  .b-pending{color:var(--pending); background:var(--pending-bg)}
+  .b-important{color:var(--important); background:var(--important-bg)}
+  .b-hidden{color:var(--hidden); background:var(--hidden-bg)}
+  .b-new{color:#fff; background:var(--important)}
+  .ri-place{font-size:13px; font-weight:600; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .ri-sub{font-size:11.5px; color:var(--ink-faint); margin-top:1px; display:flex; gap:8px; flex-wrap:wrap}
+  .ri-sub .dir{color:var(--ink-soft); font-weight:600}
+
+  /* ─── 상세 모달 ─────────────────────────── */
+  .overlay{
+    position:fixed; inset:0; z-index:60;
+    background:rgba(15,23,36,.45);
+    display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  .overlay.open{display:flex}
+  .detail{
+    width:min(430px, 100%); max-height:min(86vh, 720px); overflow-y:auto;
+    background:var(--surface); border-radius:18px; box-shadow:var(--shadow-lg);
+    display:flex; flex-direction:column;
+  }
+  .detail-photo{height:170px; position:relative; flex:none; overflow:hidden}
+  .detail-photo svg,.detail-photo img{width:100%; height:100%; display:block; object-fit:cover}
+  .detail-close{
+    position:absolute; top:12px; right:12px;
+    width:32px;height:32px; border-radius:50%;
+    background:rgba(20,25,33,.55); color:#fff; font-size:16px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .detail-body{padding:18px 20px 20px; display:grid; gap:14px}
+  .detail-title{display:flex; align-items:center; gap:9px; flex-wrap:wrap}
+  .detail-title .seen{font-size:20px; font-weight:800; font-variant-numeric:tabular-nums}
+  .detail-title .place{font-size:14px; font-weight:700; color:var(--ink-soft); width:100%}
+  .kv{display:grid; grid-template-columns:96px 1fr; gap:7px 12px; font-size:13.5px; margin:0}
+  .kv dt{color:var(--ink-faint); font-weight:600; margin:0}
+  .kv dd{margin:0; font-weight:600; font-variant-numeric:tabular-nums}
+  .memo-box{
+    background:var(--surface-2); border-radius:11px; padding:11px 14px;
+    font-size:13.5px; line-height:1.6;
+  }
+  .contact-row{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; flex-wrap:wrap}
+  .contact-ok{color:var(--trust)} .contact-no{color:var(--ink-faint)}
+  .status-actions{display:grid; grid-template-columns:repeat(4,1fr); gap:7px}
+  .st-btn{
+    padding:10px 4px; border-radius:11px; font-size:12.5px; font-weight:800;
+    border:1.5px solid var(--line); background:var(--surface); color:var(--ink-soft);
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+  }
+  .st-btn .ic{font-size:15px; line-height:1}
+  .st-btn:hover{border-color:currentColor}
+  .st-btn.sel-trusted{border-color:var(--trust); color:var(--trust); background:var(--trust-bg)}
+  .st-btn.sel-pending{border-color:var(--pending); color:var(--pending); background:var(--pending-bg)}
+  .st-btn.sel-hidden{border-color:var(--hidden); color:var(--hidden); background:var(--hidden-bg)}
+  .st-btn.sel-important{border-color:var(--important); color:var(--important); background:var(--important-bg)}
+  .detail-hint{font-size:11.5px; color:var(--ink-faint); line-height:1.5}
+
+  /* ─── 공고·공유 화면 ─────────────────────── */
+  .notice-layout{
+    display:grid; grid-template-columns:minmax(0,460px) minmax(0,1fr); gap:16px;
+    max-width:1020px; margin:0 auto; padding:12px 20px 40px; align-items:start;
+  }
+  .poster{
+    overflow:hidden;
+  }
+  .poster-top{
+    background:linear-gradient(160deg, var(--navy) 0%, var(--navy-deep) 100%);
+    padding:24px 24px 20px; color:#fff; text-align:center;
+  }
+  :root[data-theme="dark"] .poster-top{color:var(--bg)}
+  @media (prefers-color-scheme: dark){ :root:not([data-theme]) .poster-top{color:var(--bg)} }
+  .poster-top .find{font-size:13px; font-weight:800; letter-spacing:.22em; opacity:.85}
+  .poster-top h2{margin:6px 0 0; font-size:26px; font-weight:800; letter-spacing:-.02em}
+  .poster-dog{
+    width:110px; height:110px; margin:16px auto 0; border-radius:28px;
+    background:linear-gradient(135deg,#FBE8CF,#F3D6B0);
+    display:flex; align-items:center; justify-content:center;
+    border:4px solid rgba(255,255,255,.35);
+  }
+  .poster-dog svg{width:86px;height:86px}
+  .poster-body{padding:20px 24px 24px; display:grid; gap:14px}
+  .poster-rows{display:grid; gap:8px; font-size:13.5px}
+  .poster-rows div{display:flex; justify-content:space-between; gap:12px; border-bottom:1px dashed var(--line); padding-bottom:8px}
+  .poster-rows dt{color:var(--ink-faint); font-weight:600; margin:0; flex:none}
+  .poster-rows dd{margin:0; font-weight:700; text-align:right}
+  .qr-row{
+    display:flex; gap:16px; align-items:center;
+    background:var(--surface-2); border-radius:12px; padding:14px 16px;
+  }
+  .qr-box{width:92px;height:92px;flex:none;background:#fff;border-radius:10px;padding:7px;border:1px solid var(--line)}
+  .qr-box svg{width:100%;height:100%;display:block}
+  .qr-txt{font-size:12.5px; color:var(--ink-soft); line-height:1.55}
+  .qr-txt b{color:var(--navy); font-size:13.5px}
+  .qr-link{
+    display:inline-block; margin-top:4px; font-size:12.5px; font-weight:700;
+    background:var(--surface); border:1px solid var(--line); border-radius:8px;
+    padding:4px 9px; font-variant-numeric:tabular-nums;
+  }
+  .share-panel{display:flex; flex-direction:column; gap:14px}
+  .share-card{padding:18px 20px}
+  .share-card h3{margin:0 0 4px; font-size:15px; font-weight:800; color:var(--navy)}
+  .share-card p.sub{margin:0 0 14px; font-size:13px; color:var(--ink-soft)}
+  .share-grid{display:grid; grid-template-columns:1fr 1fr; gap:9px}
+  .share-item{
+    display:flex; align-items:center; gap:10px;
+    border:1.5px solid var(--line); border-radius:12px; padding:12px 14px;
+    background:var(--surface); font-size:13.5px; font-weight:700; text-align:left;
+  }
+  .share-item:hover{border-color:var(--navy)}
+  .share-item .si{
+    width:34px;height:34px;border-radius:9px;flex:none;
+    display:flex;align-items:center;justify-content:center;font-size:16px;
+    background:var(--surface-2);
+  }
+  .share-item small{display:block;font-size:11px;color:var(--ink-faint);font-weight:600}
+  .tip-card{padding:15px 18px; border-left:4px solid var(--trust)}
+  .tip-card h4{margin:0 0 6px; font-size:13px; font-weight:800; color:var(--trust)}
+  .tip-card ul{margin:0; padding-left:18px; font-size:12.5px; color:var(--ink-soft); display:grid; gap:4px}
+
+  /* ─── 목격자 제보 화면 ────────────────────── */
+  .witness-wrap{max-width:470px; margin:0 auto; padding:12px 16px 48px; display:grid; gap:12px}
+  .witness-note{
+    font-size:12px; color:var(--ink-faint); text-align:center;
+  }
+  .w-card{padding:16px; display:grid; gap:12px}
+  .w-dog{display:flex; gap:12px; align-items:center}
+  .w-dog .dog-photo{width:56px;height:56px;border-radius:14px}
+  .w-dog .dog-photo svg{width:44px;height:44px}
+  .w-dog-name{font-size:16px; font-weight:800}
+  .w-dog-meta{font-size:12.5px; color:var(--ink-soft)}
+  .w-title{margin:0; font-size:18px; font-weight:800; letter-spacing:-.02em; text-align:center}
+  .w-sub{margin:0; font-size:13px; color:var(--ink-soft); text-align:center}
+  .field{display:grid; gap:6px}
+  .field > label, .field .flabel{font-size:12.5px; font-weight:800; color:var(--ink-soft)}
+  .field .req{color:var(--important)}
+  .field input[type="time"],.field input[type="text"],.field input[type="tel"],.field select,.field textarea{
+    width:100%; border:1.5px solid var(--line); border-radius:11px;
+    background:var(--surface); padding:11px 13px; font-size:14px;
+  }
+  .field textarea{resize:vertical; min-height:72px}
+  .mini-map{
+    position:relative; border:1.5px solid var(--line); border-radius:12px; overflow:hidden;
+    background:var(--map-bg); cursor:crosshair;
+  }
+  .mini-map svg{display:block; width:100%; height:auto}
+  .mini-map-hint{
+    position:absolute; top:8px; left:8px; right:8px;
+    background:color-mix(in srgb, var(--surface) 88%, transparent);
+    border-radius:8px; padding:5px 10px;
+    font-size:11.5px; font-weight:700; color:var(--ink-soft); text-align:center;
+    pointer-events:none;
+  }
+  .quick-spots{display:flex; gap:6px; flex-wrap:wrap}
+  .photo-drop{
+    border:1.5px dashed var(--line); border-radius:12px; padding:14px;
+    display:flex; align-items:center; gap:11px; cursor:pointer;
+    background:var(--surface-2); font-size:13px; color:var(--ink-soft);
+  }
+  .photo-drop:hover{border-color:var(--navy)}
+  .photo-drop .pv{width:46px;height:46px;border-radius:9px;flex:none;overflow:hidden;background:var(--surface);
+    display:flex;align-items:center;justify-content:center;font-size:19px;border:1px solid var(--line)}
+  .photo-drop .pv img{width:100%;height:100%;object-fit:cover}
+  .check-row{
+    display:flex; gap:10px; align-items:flex-start;
+    background:var(--surface-2); border-radius:11px; padding:11px 13px;
+    font-size:13px; cursor:pointer;
+  }
+  .check-row input{width:17px;height:17px;margin-top:2px;accent-color:var(--navy)}
+  .check-row small{display:block;color:var(--ink-faint);font-size:11.5px;margin-top:1px}
+  .submit-btn{
+    width:100%; padding:15px; border-radius:13px;
+    background:var(--navy); color:#fff; font-size:15.5px; font-weight:800;
+  }
+  :root[data-theme="dark"] .submit-btn{color:var(--bg)}
+  @media (prefers-color-scheme: dark){ :root:not([data-theme]) .submit-btn{color:var(--bg)} }
+  .submit-btn:hover{filter:brightness(1.08)}
+  .w-caution{font-size:12.5px}
+  .form-err{font-size:12.5px; color:var(--important); font-weight:700; display:none}
+  .form-err.show{display:block}
+
+  .w-done{padding:28px 22px; text-align:center; display:none}
+  .w-done.show{display:grid; gap:8px; justify-items:center}
+  .done-icon{
+    width:66px;height:66px;border-radius:50%;
+    background:var(--trust-bg); color:var(--trust);
+    display:flex;align-items:center;justify-content:center;font-size:30px;
+  }
+  .w-done h3{margin:4px 0 0; font-size:18px; font-weight:800}
+  .w-done p{margin:0; font-size:13.5px; color:var(--ink-soft); line-height:1.6}
+  .done-actions{display:grid; gap:8px; width:100%; margin-top:10px}
+  .ghost-btn{
+    width:100%; padding:13px; border-radius:12px; font-size:14px; font-weight:800;
+    border:1.5px solid var(--navy); color:var(--navy); background:var(--surface);
+  }
+
+  /* ─── 토스트 ───────────────────────────── */
+  .toast{
+    position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(20px);
+    background:var(--navy-deep); color:var(--bg);
+    padding:11px 20px; border-radius:12px; font-size:13.5px; font-weight:700;
+    box-shadow:var(--shadow-lg); opacity:0; pointer-events:none;
+    transition:opacity .25s, transform .25s; z-index:80; max-width:88vw; text-align:center;
+  }
+  :root:not([data-theme="dark"]) .toast{color:#fff}
+  @media (prefers-color-scheme: dark){ :root:not([data-theme]) .toast{color:var(--bg)} }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+  /* ─── 모바일 ───────────────────────────── */
+  .sheet-handle{display:none}
+  @media (max-width: 960px){
+    body{padding-bottom:280px}
+    body:not(:has(#view-map.on)){padding-bottom:0}
+    .layout{grid-template-columns:1fr; padding:8px 12px 0; gap:12px}
+    .page-name{display:none}
+    header{padding:0 12px; gap:8px; height:54px}
+    .logo{font-size:16px; white-space:nowrap}
+    .logo svg{width:22px;height:22px}
+    .live-chip{font-size:11px; padding:4px 9px; white-space:nowrap}
+    .share-btn{font-size:12px; padding:8px 11px; white-space:nowrap}
+    .tabs{top:54px; padding:10px 12px 4px; gap:6px; overflow-x:auto}
+    .tab{padding:7px 12px; flex:none}
+    .tab .name{font-size:12.5px}
+    .map-note{display:none}
+    .legend{font-size:10.5px; padding:7px 9px; gap:3px; bottom:8px; left:8px}
+    .lg-dot{width:8px;height:8px} .lg-zone{width:10px;height:10px}
+    .side{display:contents}
+    .dog-card-wrap{order:-1}
+    .zone-wrap{order:1}
+    .flow-wrap{order:2}
+    .notice-layout{grid-template-columns:1fr; padding:8px 12px 40px}
+    /* 제보 목록 → 바텀시트 */
+    .report-wrap{
+      position:fixed; left:0; right:0; bottom:0; z-index:50;
+      border-radius:18px 18px 0 0; border-bottom:none;
+      box-shadow:0 -8px 30px rgba(20,44,78,.18);
+      max-height:262px; transition:max-height .3s ease;
+      display:flex; flex-direction:column; overflow:hidden;
+    }
+    #view-map:not(.on) .report-wrap{display:none}
+    .report-wrap.expanded{max-height:76vh}
+    .sheet-handle{
+      display:block; width:100%; padding:9px 0 3px; flex:none;
+    }
+    .sheet-handle::before{
+      content:""; display:block; width:42px; height:4.5px; border-radius:99px;
+      background:var(--line); margin:0 auto;
+    }
+    .report-list{max-height:none; flex:1}
+    .dog-facts{grid-template-columns:repeat(4,1fr)}
+    .fact:nth-child(n+5){display:none}
+  }
+  @media (max-width: 520px){
+    .dog-facts{grid-template-columns:1fr 1fr}
+    .fact:nth-child(n+5){display:block}
+    .status-actions{grid-template-columns:repeat(2,1fr)}
+    .share-grid{grid-template-columns:1fr}
+  }
+</style>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 21c-3.5 0-6-2-6-4.6 0-2.9 2.8-5.9 6-5.9s6 3 6 5.9c0 2.6-2.5 4.6-6 4.6Z" fill="var(--navy)"/>
+      <circle cx="6.2" cy="8.6" r="2.1" fill="var(--navy)"/>
+      <circle cx="17.8" cy="8.6" r="2.1" fill="var(--navy)"/>
+      <circle cx="9.4" cy="4.9" r="2" fill="var(--navy)"/>
+      <circle cx="14.6" cy="4.9" r="2" fill="var(--navy)"/>
+    </svg>
+    멍백홈
+  </div>
+  <div class="page-name"><b>유실목격지도</b> · 제보는 한곳에, 수색은 더 똑똑하게</div>
+  <div class="header-right">
+    <span class="live-chip"><span class="live-dot"></span>찾는 중 D+0</span>
+    <button class="share-btn" id="shareBtn" type="button">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 3v13M7.5 7.5 12 3l4.5 4.5"/></svg>
+      제보 링크 공유
+    </button>
+  </div>
+</header>
+
+<!-- 화면 전환 탭 -->
+<nav class="tabs" aria-label="화면 전환">
+  <button class="tab" data-view="notice" type="button">
+    <span class="role">보호자 · STEP 1–2</span><span class="name">공고 만들기 · 공유</span>
+  </button>
+  <button class="tab on" data-view="map" type="button">
+    <span class="role">보호자 · STEP 5–8</span><span class="name">유실목격지도</span>
+    <span class="noti" id="mapNoti">1</span>
+  </button>
+  <button class="tab" data-view="witness" type="button">
+    <span class="role">목격자 · STEP 3–4</span><span class="name">제보하기 (앱 설치 없이)</span>
+  </button>
+</nav>
+
+<!-- ════════════ 화면 1 · 공고·공유 ════════════ -->
+<section class="view" id="view-notice">
+  <div class="notice-layout">
+
+    <!-- 공고 포스터 -->
+    <div class="card poster">
+      <div class="poster-top">
+        <div class="find">MISSING · 강아지를 찾습니다</div>
+        <h2>콩이를 봤다면 알려주세요</h2>
+        <div class="poster-dog" aria-hidden="true">
+          <svg viewBox="0 0 64 64">
+            <ellipse cx="32" cy="38" rx="20" ry="18" fill="#FFFDF8"/>
+            <ellipse cx="14" cy="26" rx="8" ry="12" fill="#F5EEDF" transform="rotate(-18 14 26)"/>
+            <ellipse cx="50" cy="26" rx="8" ry="12" fill="#F5EEDF" transform="rotate(18 50 26)"/>
+            <circle cx="32" cy="30" r="15" fill="#FFFDF8"/>
+            <circle cx="26.5" cy="28" r="2.1" fill="#3A3A3A"/>
+            <circle cx="37.5" cy="28" r="2.1" fill="#3A3A3A"/>
+            <ellipse cx="32" cy="34.5" rx="3" ry="2.4" fill="#3A3A3A"/>
+            <path d="M32 37 Q30 40 27.5 39.5 M32 37 Q34 40 36.5 39.5" stroke="#3A3A3A" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+            <path d="M24 20 Q32 14 40 20" stroke="#F0E7D4" stroke-width="4" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="poster-body">
+        <dl class="poster-rows">
+          <div><dt>이름 / 견종</dt><dd>콩이 · 말티즈 (흰색)</dd></div>
+          <div><dt>나이 / 체중</dt><dd>7살 · 4.2kg</dd></div>
+          <div><dt>잃어버린 곳</dt><dd>노원구 중계근린공원 입구</dd></div>
+          <div><dt>잃어버린 시각</dt><dd>오늘 16:30</dd></div>
+          <div><dt>특징</dt><dd>겁이 많음 · 심장약 복용 중</dd></div>
+        </dl>
+        <div class="caution w-caution">
+          <b>꼭 읽어주세요</b> · 콩이는 겁이 많아 쫓아가면 더 도망갑니다.
+          잡으려 하지 말고 <b>위치와 사진만</b> 제보해주세요.
+        </div>
+        <div class="qr-row">
+          <div class="qr-box" id="qrBox" aria-label="제보 페이지 QR 코드(데모)"></div>
+          <div class="qr-txt">
+            <b>QR을 찍으면 바로 제보 페이지</b><br>
+            앱 설치 없이 30초면 제보할 수 있어요.
+            <span class="qr-link">mungbaek.home/r/kong-i</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 공유 패널 -->
+    <div class="share-panel">
+      <div class="card share-card">
+        <h3>공고 공유하기</h3>
+        <p class="sub">더 많은 곳에 뿌릴수록 목격 제보가 빨리 모여요.</p>
+        <div class="share-grid">
+          <button class="share-item" data-share="link" type="button">
+            <span class="si">🔗</span><span>링크 복사<small>어디든 붙여넣기</small></span>
+          </button>
+          <button class="share-item" data-share="kakao" type="button">
+            <span class="si">💬</span><span>카카오톡<small>가족·이웃 단톡방</small></span>
+          </button>
+          <button class="share-item" data-share="daangn" type="button">
+            <span class="si">🥕</span><span>당근 동네생활<small>우리 동네 이웃에게</small></span>
+          </button>
+          <button class="share-item" data-share="insta" type="button">
+            <span class="si">📸</span><span>인스타 스토리<small>이미지로 내보내기</small></span>
+          </button>
+          <button class="share-item" data-share="print" type="button">
+            <span class="si">🖨️</span><span>전단지 인쇄용 PDF<small>QR 포함 A4 포스터</small></span>
+          </button>
+          <button class="share-item" data-share="preview" type="button">
+            <span class="si">👀</span><span>제보 페이지 미리보기<small>목격자가 보는 화면</small></span>
+          </button>
+        </div>
+      </div>
+      <div class="card tip-card">
+        <h4>공유 팁</h4>
+        <ul>
+          <li>전단지는 마지막 목격 지점 반경 1km 안 전봇대·상가에 붙이는 게 효과적이에요.</li>
+          <li>당근 동네생활 글에는 QR 이미지와 함께 "잡지 말고 제보만"을 꼭 적어주세요.</li>
+          <li>제보가 들어오면 유실목격지도에 실시간으로 모입니다.</li>
+        </ul>
+      </div>
+      <div class="card share-card">
+        <h3>공고 정보</h3>
+        <p class="sub" style="margin-bottom:10px">공고를 수정하면 공유된 모든 링크에 바로 반영돼요.</p>
+        <button class="ghost-btn" id="editNotice" type="button">공고 정보 수정</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ 화면 2 · 유실목격지도 ════════════ -->
+<section class="view on" id="view-map">
+<div class="layout">
+
+  <!-- ── 지도 컬럼 ── -->
+  <div class="map-col">
+    <div class="map-wrap">
+      <svg id="mapSvg" viewBox="0 0 820 560" role="img" aria-label="유실목격지도: 목격 제보 위치와 시간순 이동 경로">
+        <g id="baseMap">
+          <!-- 바닥 -->
+          <rect width="820" height="560" fill="var(--map-bg)"/>
+
+          <!-- 도로 -->
+          <g stroke="var(--map-road)" fill="none" stroke-linecap="round">
+            <path d="M0 150 H820" stroke-width="22"/>
+            <path d="M0 470 H820" stroke-width="18"/>
+            <path d="M150 0 V560" stroke-width="20"/>
+            <path d="M470 0 V150" stroke-width="16"/>
+            <path d="M320 150 V470" stroke-width="14"/>
+            <path d="M650 150 V560" stroke-width="14"/>
+          </g>
+
+          <!-- 건물 블록 -->
+          <g fill="var(--map-block)">
+            <rect x="30" y="30" width="90" height="88" rx="8"/>
+            <rect x="185" y="34" width="110" height="84" rx="8"/>
+            <rect x="30" y="195" width="88" height="110" rx="8"/>
+            <rect x="30" y="340" width="88" height="96" rx="8"/>
+            <rect x="185" y="330" width="100" height="105" rx="8"/>
+            <rect x="185" y="500" width="110" height="45" rx="8"/>
+            <rect x="30" y="500" width="88" height="45" rx="8"/>
+            <rect x="510" y="30" width="120" height="85" rx="8"/>
+            <rect x="680" y="30" width="105" height="85" rx="8"/>
+            <rect x="680" y="500" width="105" height="45" rx="8"/>
+          </g>
+
+          <!-- 공원 -->
+          <path d="M355 180 Q470 160 560 195 Q615 220 600 300 Q585 375 490 400 Q390 420 350 350 Q325 290 340 235 Q345 200 355 180 Z"
+                fill="var(--map-park)" stroke="var(--map-park-line)" stroke-width="2"/>
+          <g fill="var(--map-park-line)">
+            <circle cx="430" cy="250" r="9"/><circle cx="482" cy="230" r="7"/>
+            <circle cx="530" cy="270" r="9"/><circle cx="470" cy="320" r="8"/>
+            <circle cx="410" cy="345" r="7"/><circle cx="545" cy="330" r="7"/>
+          </g>
+          <text x="455" y="298" class="maplabel big" text-anchor="middle">중계근린공원</text>
+
+          <!-- 하천 -->
+          <path d="M760 100 Q700 220 640 320 Q590 405 560 545"
+                fill="none" stroke="var(--map-water)" stroke-width="40" stroke-linecap="round"/>
+          <path d="M760 100 Q700 220 640 320 Q590 405 560 545"
+                fill="none" stroke="var(--map-water-line)" stroke-width="1.6" stroke-dasharray="2 7" opacity=".8"/>
+          <text x="702" y="252" class="maplabel big" transform="rotate(58 702 252)" text-anchor="middle">당현천</text>
+        </g>
+
+        <!-- 동적 레이어: 수색구역 → 경로 → 핀 -->
+        <g id="zoneLayer"></g>
+        <g id="trailLayer"></g>
+        <g id="pinLayer"></g>
+      </svg>
+
+      <div class="map-note">
+        <b>실제 목격 시각</b> 기준으로 이동 경로를 연결합니다.<br>
+        숨김 처리한 제보는 지도에서 제외돼요.
+      </div>
+
+      <div class="legend" aria-label="지도 범례">
+        <div><span class="lg-star">★</span>마지막 목격 지점</div>
+        <div><span class="lg-dot" style="background:var(--trust)"></span>신뢰 제보</div>
+        <div><span class="lg-dot" style="background:var(--pending)"></span>확인 필요</div>
+        <div><span class="lg-dot" style="background:var(--important)"></span>중요 제보</div>
+        <div><span class="lg-zone"></span>우선 수색 구역</div>
+      </div>
+    </div>
+
+    <!-- 서비스 흐름 -->
+    <section class="flow-card flow-wrap">
+      <h2>제보가 지도에 모이기까지</h2>
+      <p class="sub">목격자는 앱 설치 없이 링크로 제보하고, 보호자는 신뢰한 제보만 지도에 반영합니다.</p>
+      <div class="flow-steps">
+        <div class="flow-step"><span class="n">1</span><div class="t">유실 공고 생성</div><div class="d">보호자가 등록</div></div>
+        <div class="flow-step"><span class="n">2</span><div class="t">QR·링크 공유</div><div class="d">당근·인스타·전단지</div></div>
+        <div class="flow-step"><span class="n">3</span><div class="t">앱 없이 제보</div><div class="d">목격자가 링크로</div></div>
+        <div class="flow-step"><span class="n">4</span><div class="t">제보 도착</div><div class="d">보호자에게 알림</div></div>
+        <div class="flow-step"><span class="n">5</span><div class="t">제보 확인</div><div class="d">사진·위치 검토</div></div>
+        <div class="flow-step"><span class="n">6</span><div class="t">신뢰 제보만 반영</div><div class="d">오인·장난 걸러냄</div></div>
+        <div class="flow-step"><span class="n">7</span><div class="t">시간순 이동 흐름</div><div class="d">목격 시각 기준</div></div>
+        <div class="flow-step"><span class="n">8</span><div class="t">우선 수색 구역</div><div class="d">최근 신뢰 제보 기준</div></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ── 사이드 패널 ── -->
+  <aside class="side">
+
+    <!-- 강아지 카드 -->
+    <section class="card dog-card dog-card-wrap" aria-label="강아지 정보">
+      <div class="dog-head">
+        <div class="dog-photo" aria-hidden="true">
+          <svg viewBox="0 0 64 64">
+            <ellipse cx="32" cy="38" rx="20" ry="18" fill="#FFFDF8"/>
+            <ellipse cx="14" cy="26" rx="8" ry="12" fill="#F5EEDF" transform="rotate(-18 14 26)"/>
+            <ellipse cx="50" cy="26" rx="8" ry="12" fill="#F5EEDF" transform="rotate(18 50 26)"/>
+            <circle cx="32" cy="30" r="15" fill="#FFFDF8"/>
+            <circle cx="26.5" cy="28" r="2.1" fill="#3A3A3A"/>
+            <circle cx="37.5" cy="28" r="2.1" fill="#3A3A3A"/>
+            <ellipse cx="32" cy="34.5" rx="3" ry="2.4" fill="#3A3A3A"/>
+            <path d="M32 37 Q30 40 27.5 39.5 M32 37 Q34 40 36.5 39.5" stroke="#3A3A3A" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+            <path d="M24 20 Q32 14 40 20" stroke="#F0E7D4" stroke-width="4" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="dog-name-row">
+            <span class="dog-name">콩이</span>
+            <span class="status-badge">찾는 중</span>
+          </div>
+          <div class="dog-meta">말티즈 · 7살 · 4.2kg</div>
+        </div>
+      </div>
+
+      <div class="dog-facts">
+        <div class="fact"><div class="k">마지막 목격 위치</div><div class="v">중계근린공원 입구</div></div>
+        <div class="fact"><div class="k">마지막 목격 시각</div><div class="v">오늘 16:30</div></div>
+        <div class="fact"><div class="k">성격</div><div class="v">겁이 많음</div></div>
+        <div class="fact"><div class="k">건강</div><div class="v">심장약 복용 중</div></div>
+      </div>
+
+      <div class="caution">
+        <b>발견 시 주의</b> · 콩이는 겁이 많아 쫓아가면 더 도망갈 수 있습니다.
+        잡으려 하지 말고 <b>위치와 사진만 제보</b>해주세요. 심장 관리 약을 복용 중이라 빠른 발견이 중요해요.
+      </div>
+    </section>
+
+    <!-- 우선 수색 구역 카드 -->
+    <section class="card zone-card zone-wrap" aria-label="우선 수색 구역 안내">
+      <h3>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+        지금 어디부터 찾아볼까요?
+      </h3>
+      <p id="zoneText"></p>
+      <div class="basis" id="zoneBasis"></div>
+    </section>
+
+    <!-- 제보 목록 -->
+    <section class="card report-panel report-wrap" id="reportSheet" aria-label="목격 제보 목록">
+      <button class="sheet-handle" id="sheetHandle" type="button" aria-label="제보 목록 펼치기/접기"></button>
+      <div class="report-head">
+        <h3>목격 제보 <span class="cnt" id="reportCnt"></span></h3>
+        <div class="sort-note">제보 접수 순서가 아니라 <b>실제 목격 시각</b> 기준으로 정렬돼요</div>
+      </div>
+      <div class="filters" id="filters" role="group" aria-label="제보 상태 필터"></div>
+      <ul class="report-list" id="reportList"></ul>
+    </section>
+
+  </aside>
+</div>
+</section>
+
+<!-- ════════════ 화면 3 · 목격자 제보 ════════════ -->
+<section class="view" id="view-witness">
+  <div class="witness-wrap">
+    <p class="witness-note">목격자가 QR·링크로 여는 화면 — 앱 설치·회원가입 없이 제보할 수 있어요</p>
+
+    <!-- 제보 폼 -->
+    <div class="card w-card" id="witnessForm">
+      <h2 class="w-title">콩이를 목격하셨나요?</h2>
+      <p class="w-sub">30초면 충분해요. 위치와 시간만 알려주셔도 큰 힘이 됩니다.</p>
+
+      <div class="w-dog">
+        <div class="dog-photo" aria-hidden="true">
+          <svg viewBox="0 0 64 64">
+            <ellipse cx="32" cy="38" rx="20" ry="18" fill="#FFFDF8"/>
+            <ellipse cx="14" cy="26" rx="8" ry="12" fill="#F5EEDF" transform="rotate(-18 14 26)"/>
+            <ellipse cx="50" cy="26" rx="8" ry="12" fill="#F5EEDF" transform="rotate(18 50 26)"/>
+            <circle cx="32" cy="30" r="15" fill="#FFFDF8"/>
+            <circle cx="26.5" cy="28" r="2.1" fill="#3A3A3A"/>
+            <circle cx="37.5" cy="28" r="2.1" fill="#3A3A3A"/>
+            <ellipse cx="32" cy="34.5" rx="3" ry="2.4" fill="#3A3A3A"/>
+            <path d="M32 37 Q30 40 27.5 39.5 M32 37 Q34 40 36.5 39.5" stroke="#3A3A3A" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+            <path d="M24 20 Q32 14 40 20" stroke="#F0E7D4" stroke-width="4" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="w-dog-name">콩이 <span class="badge b-important">찾는 중</span></div>
+          <div class="w-dog-meta">말티즈 · 흰색 · 4.2kg · 빨간 목줄 없음</div>
+        </div>
+      </div>
+
+      <div class="caution w-caution">
+        <b>잡으려 하지 마세요!</b> 콩이는 겁이 많아 쫓아가면 더 도망갑니다.
+        거리를 두고 <b>위치와 사진만</b> 남겨주세요.
+      </div>
+
+      <div class="field">
+        <label for="wTime">언제 봤나요? <span class="req">*</span></label>
+        <input type="time" id="wTime" value="18:40">
+      </div>
+
+      <div class="field">
+        <span class="flabel">어디서 봤나요? — 지도를 탭해서 위치를 찍어주세요 <span class="req">*</span></span>
+        <div class="mini-map" id="miniMap">
+          <svg id="miniMapSvg" viewBox="0 0 820 560" aria-label="목격 위치 선택 지도"></svg>
+          <div class="mini-map-hint" id="miniHint">지도를 탭하면 목격 위치가 표시돼요</div>
+        </div>
+        <div class="quick-spots" id="quickSpots">
+          <button class="chip" type="button" data-spot="222,150,GS25 중계점 편의점 앞">편의점 앞</button>
+          <button class="chip" type="button" data-spot="398,238,중계근린공원 입구">공원 입구</button>
+          <button class="chip" type="button" data-spot="622,352,당현천 산책로">당현천 산책로</button>
+          <button class="chip" type="button" data-spot="580,470,당현천 남단 다리">남단 다리</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="wPlace">장소 설명</label>
+        <input type="text" id="wPlace" placeholder="예: 당현천 남단 다리 아래 벤치 근처">
+      </div>
+
+      <div class="field">
+        <label for="wDir">어느 방향으로 갔나요?</label>
+        <select id="wDir">
+          <option value="방향 확인 안 됨">잘 모르겠어요</option>
+          <option>공원 방향으로 이동</option>
+          <option>하천 방향으로 이동</option>
+          <option>남쪽 산책로 방향으로 이동</option>
+          <option>주택가 방향으로 이동</option>
+          <option>그 자리에 머물러 있었어요</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="wMemo">상황 설명</label>
+        <textarea id="wMemo" placeholder="예: 벤치 아래에 숨어 있었어요. 많이 지쳐 보였습니다."></textarea>
+      </div>
+
+      <div class="field">
+        <span class="flabel">사진이 있다면 올려주세요</span>
+        <label class="photo-drop" id="photoDrop">
+          <span class="pv" id="photoPreview">📷</span>
+          <span id="photoLabel">멀리서 찍은 사진도 큰 도움이 돼요<br><b style="color:var(--navy)">탭해서 사진 선택</b></span>
+          <input type="file" id="wPhoto" accept="image/*" hidden>
+        </label>
+      </div>
+
+      <label class="check-row">
+        <input type="checkbox" id="wContact" checked>
+        <span>보호자가 추가로 물어볼 수 있게 <b>연락을 허용</b>할게요
+          <small>연락처는 보호자에게만 공개되고, 수색 종료 시 자동 삭제돼요.</small></span>
+      </label>
+
+      <p class="form-err" id="formErr">지도에서 목격 위치를 탭해주세요.</p>
+      <button class="submit-btn" id="wSubmit" type="button">제보 보내기</button>
+      <p class="witness-note" style="margin:0">허위 제보는 숨김 처리될 수 있어요 · 개인정보는 수색 목적으로만 사용됩니다</p>
+    </div>
+
+    <!-- 제출 완료 -->
+    <div class="card w-done" id="witnessDone">
+      <div class="done-icon">✓</div>
+      <h3>제보가 전달됐어요</h3>
+      <p>콩이 보호자에게 방금 알림이 갔어요.<br>덕분에 콩이가 집에 갈 확률이 높아졌습니다. 감사합니다!</p>
+      <div class="done-actions">
+        <button class="submit-btn" id="goMap" type="button">보호자 지도에서 내 제보 보기</button>
+        <button class="ghost-btn" id="newReport" type="button">추가로 제보하기</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 상세 모달 -->
+<div class="overlay" id="overlay">
+  <div class="detail" role="dialog" aria-modal="true" aria-label="제보 상세">
+    <div class="detail-photo" id="detailPhoto">
+      <button class="detail-close" id="detailClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="detail-body">
+      <div class="detail-title">
+        <span class="seen" id="dSeen"></span>
+        <span class="badge" id="dBadge"></span>
+        <span class="place" id="dPlace"></span>
+      </div>
+      <dl class="kv">
+        <dt>목격 시각</dt><dd id="dSeen2"></dd>
+        <dt>제보 접수 시각</dt><dd id="dRecv"></dd>
+        <dt>이동 방향</dt><dd id="dDir"></dd>
+      </dl>
+      <div class="memo-box" id="dMemo"></div>
+      <div class="contact-row" id="dContact"></div>
+      <div>
+        <div style="font-size:12px;font-weight:800;color:var(--ink-faint);margin-bottom:7px;letter-spacing:.03em">제보 상태 관리</div>
+        <div class="status-actions" id="statusActions"></div>
+      </div>
+      <div class="detail-hint">신뢰·중요로 표시한 제보만 지도의 이동 경로와 우선 수색 구역 계산에 반영됩니다. 숨김 처리하면 지도에서 사라져요.</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ─── 더미 데이터 ─────────────────────────── */
+const STATUS = {
+  trusted:  {label:"신뢰",      cls:"trusted",  color:"var(--trust)",     ic:"✓"},
+  pending:  {label:"확인 필요", cls:"pending",  color:"var(--pending)",   ic:"?"},
+  important:{label:"중요",      cls:"important",color:"var(--important)", ic:"!"},
+  hidden:   {label:"숨김",      cls:"hidden",   color:"var(--hidden)",    ic:"–"},
+};
+
+/* 마지막 목격 지점(보호자) */
+const lostPoint = {x:352, y:196, label:"16:30", place:"중계근린공원 입구"};
+
+/* 제보 (x,y = 지도 SVG 좌표) */
+const reports = [
+  { id:1, seenAt:"17:10", receivedAt:"17:24", place:"GS25 중계점 편의점 앞",
+    dir:"공원 방향으로 이동", status:"trusted", contact:true,
+    memo:"흰색 말티즈가 편의점 앞을 지나 공원 쪽으로 뛰어갔어요. 목줄은 없었고 많이 불안해 보였습니다.",
+    x:222, y:150, scene:"street" },
+  { id:2, seenAt:"17:35", receivedAt:"17:41", place:"중계근린공원 입구",
+    dir:"하천 방향으로 이동", status:"pending", contact:false,
+    memo:"공원 입구 벤치 근처에서 작은 흰 강아지를 봤어요. 사람이 다가가니 하천 쪽으로 갔습니다.",
+    x:398, y:238, scene:"park" },
+  { id:3, seenAt:"17:50", receivedAt:"18:20", place:"중계아파트 3단지 놀이터",
+    dir:"방향 확인 안 됨", status:"hidden", contact:false,
+    memo:"놀이터에서 흰 강아지를 봤다는 제보 → 확인 결과 이웃집 강아지로 밝혀져 숨김 처리했습니다.",
+    x:236, y:382, scene:"playground" },
+  { id:4, seenAt:"18:05", receivedAt:"18:12", place:"당현천 산책로",
+    dir:"남쪽 산책로 방향으로 이동", status:"trusted", contact:true,
+    memo:"산책 중에 흰색 말티즈가 산책로를 따라 남쪽으로 내려가는 걸 봤어요. 사진 찍어뒀습니다.",
+    x:622, y:352, scene:"river" },
+];
+
+let activeFilter = "all";
+let activeReport = null;
+let newReportIds = [];   /* 목격자 화면에서 막 들어온 제보 */
+
+/* ─── 유틸 ───────────────────────────────── */
+const $ = (s)=>document.querySelector(s);
+const timeVal = t => parseInt(t.replace(":",""),10);
+const visibleOnMap = r => r.status!=="hidden";
+const onTrail = r => r.status==="trusted" || r.status==="important";
+
+function toast(msg){
+  const t=$("#toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2400);
+}
+function addMinutes(hm, m){
+  let [h,mi]=hm.split(":").map(Number);
+  mi+=m; h=(h+Math.floor(mi/60))%24; mi%=60;
+  return String(h).padStart(2,"0")+":"+String(mi).padStart(2,"0");
+}
+
+/* 썸네일/상세 사진: 장소별 미니 일러스트 */
+function sceneSvg(scene, big=false){
+  const scenes={
+    street:{bg1:"#D8E4F0",bg2:"#B9CCE0",ground:"#98A8BC"},
+    park:{bg1:"#DCEAD2",bg2:"#C2DBB0",ground:"#A5C48E"},
+    playground:{bg1:"#EFE3D2",bg2:"#E0CCAF",ground:"#C8AE8B"},
+    river:{bg1:"#CFE3EE",bg2:"#AECFE3",ground:"#8FB8D4"},
+  };
+  const c=scenes[scene]||scenes.street;
+  return `<svg viewBox="0 0 120 ${big?60:120}" preserveAspectRatio="xMidYMid slice">
+    <rect width="120" height="120" fill="${c.bg1}"/>
+    <rect y="${big?36:72}" width="120" height="${big?24:48}" fill="${c.ground}"/>
+    <circle cx="22" cy="${big?14:26}" r="${big?8:13}" fill="${c.bg2}"/>
+    <circle cx="98" cy="${big?18:34}" r="${big?10:16}" fill="${c.bg2}"/>
+    <g transform="translate(${big?52:38},${big?30:60}) scale(${big?0.75:1})">
+      <ellipse cx="22" cy="26" rx="14" ry="10" fill="#FFFDF8"/>
+      <circle cx="34" cy="18" r="8" fill="#FFFDF8"/>
+      <ellipse cx="38" cy="12" rx="3" ry="4.5" fill="#F1E9D8"/>
+      <circle cx="36.5" cy="17" r="1.3" fill="#3A3A3A"/>
+      <circle cx="41" cy="19.5" r="1.7" fill="#3A3A3A"/>
+      <path d="M8 27 Q4 22 7 18" stroke="#FFFDF8" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <rect x="12" y="33" width="3.4" height="7" rx="1.7" fill="#FFFDF8"/>
+      <rect x="26" y="33" width="3.4" height="7" rx="1.7" fill="#FFFDF8"/>
+    </g>
+  </svg>`;
+}
+function thumbHtml(r){
+  return r.photo ? `<img src="${r.photo}" alt="">` : sceneSvg(r.scene);
+}
+
+/* ─── 화면 전환 ──────────────────────────── */
+function switchView(name){
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on", v.id==="view-"+name));
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on", t.dataset.view===name));
+  if(name==="map" && newReportIds.length){
+    toast(`새 제보 ${newReportIds.length}건이 도착했어요 — 확인 후 신뢰/숨김을 선택해주세요`);
+    newReportIds=[];
+    updateNoti();
+  }
+  window.scrollTo({top:0});
+}
+document.querySelectorAll(".tab").forEach(t=>{
+  t.addEventListener("click",()=>switchView(t.dataset.view));
+});
+function updateNoti(){
+  const n=$("#mapNoti");
+  n.textContent=newReportIds.length;
+  n.classList.toggle("show", newReportIds.length>0);
+}
+
+/* ─── 지도 렌더 ───────────────────────────── */
+function renderMap(){
+  const pinLayer=$("#pinLayer"), trailLayer=$("#trailLayer"), zoneLayer=$("#zoneLayer");
+
+  /* 우선 수색 구역: 가장 최근 신뢰/중요 제보 */
+  const trail=[...reports].filter(onTrail).sort((a,b)=>timeVal(a.seenAt)-timeVal(b.seenAt));
+  const latest=trail[trail.length-1];
+  const zoneY = latest ? Math.min(latest.y+52, 500) : 0;
+  zoneLayer.innerHTML = latest ? `
+    <circle class="zone-circle" cx="${latest.x}" cy="${zoneY}" r="86"
+      fill="color-mix(in srgb, var(--zone) 16%, transparent)"
+      stroke="var(--zone)" stroke-width="2" stroke-dasharray="7 6"/>
+    <text x="${latest.x}" y="${Math.min(zoneY+98,548)}" text-anchor="middle"
+      style="font-size:12px;font-weight:800" fill="var(--zone)">우선 수색 구역</text>` : "";
+
+  /* 시간순 이동 경로: 유실 지점 → 신뢰·중요 제보 */
+  const pts=[[lostPoint.x,lostPoint.y],...trail.map(r=>[r.x,r.y])];
+  let path="";
+  for(let i=0;i<pts.length-1;i++){
+    const [x1,y1]=pts[i],[x2,y2]=pts[i+1];
+    const mx=(x1+x2)/2, my=(y1+y2)/2 - 26;
+    path+=`M${x1} ${y1} Q${mx} ${my} ${x2} ${y2} `;
+  }
+  trailLayer.innerHTML = pts.length>1 ? `
+    <path class="trail" d="${path}" fill="none" stroke="var(--navy)" stroke-width="2.6"
+      stroke-linecap="round" opacity=".85"/>` : "";
+
+  /* 핀 */
+  let html="";
+
+  /* 마지막 목격 지점 (별) */
+  html+=`<g class="pin" data-lost="1" tabindex="0" role="button" aria-label="마지막 목격 지점 ${lostPoint.place} ${lostPoint.label}">
+    <g class="pin-body">
+      <circle cx="${lostPoint.x}" cy="${lostPoint.y}" r="15" fill="var(--navy)" stroke="var(--surface)" stroke-width="3"/>
+      <text x="${lostPoint.x}" y="${lostPoint.y+5}" text-anchor="middle" style="font-size:14px" fill="var(--bg)">★</text>
+    </g>
+    <g>
+      <rect x="${lostPoint.x-46}" y="${lostPoint.y-46}" width="92" height="22" rx="11" fill="var(--navy)"/>
+      <text x="${lostPoint.x}" y="${lostPoint.y-31}" text-anchor="middle" class="time-chip" fill="var(--bg)">${lostPoint.label} 유실</text>
+    </g>
+  </g>`;
+
+  reports.filter(visibleOnMap).forEach(r=>{
+    const st=STATUS[r.status];
+    const isActive=activeReport===r.id;
+    html+=`<g class="pin" data-id="${r.id}" tabindex="0" role="button" aria-label="${r.seenAt} ${r.place} ${st.label} 제보">
+      <g class="pin-body">
+        <path d="M${r.x} ${r.y+16} C${r.x-13} ${r.y+2} ${r.x-13} ${r.y-14} ${r.x} ${r.y-14} C${r.x+13} ${r.y-14} ${r.x+13} ${r.y+2} ${r.x} ${r.y+16} Z"
+          fill="${st.color}" stroke="var(--surface)" stroke-width="${isActive?3.5:2.5}"/>
+        <circle cx="${r.x}" cy="${r.y-2}" r="5" fill="var(--surface)"/>
+      </g>
+      <g>
+        <rect x="${r.x-27}" y="${r.y-44}" width="54" height="21" rx="10.5" fill="var(--surface)" stroke="${st.color}" stroke-width="1.5"/>
+        <text x="${r.x}" y="${r.y-29}" text-anchor="middle" class="time-chip" fill="${st.color}">${r.seenAt}</text>
+      </g>
+    </g>`;
+  });
+  pinLayer.innerHTML=html;
+
+  pinLayer.querySelectorAll(".pin[data-id]").forEach(el=>{
+    const open=()=>openDetail(+el.dataset.id);
+    el.addEventListener("click",open);
+    el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open();}});
+  });
+}
+
+/* ─── 우선 수색 구역 카드 ─────────────────── */
+function renderZoneCard(){
+  const trail=[...reports].filter(onTrail).sort((a,b)=>timeVal(a.seenAt)-timeVal(b.seenAt));
+  const latest=trail[trail.length-1];
+  if(!latest){
+    $("#zoneText").innerHTML="아직 신뢰 제보가 없어요. 새 제보가 오면 확인 후 <b>신뢰</b>로 표시해주세요.";
+    $("#zoneBasis").textContent="";
+    return;
+  }
+  const dirTxt = latest.dir.includes("확인 안") || latest.dir.includes("머물")
+    ? "주변 반경 300m 안쪽"
+    : latest.dir.replace("으로 이동","").replace("로 이동","")+" 500m 구간";
+  $("#zoneText").innerHTML=
+    `최근 신뢰 제보는 <b>${latest.seenAt} ${latest.place}</b>입니다.<br>`+
+    `지금은 <b>${dirTxt}</b>을 우선 확인해보세요.`;
+  $("#zoneBasis").textContent=`기준: 신뢰·중요 제보 ${trail.length}건 중 가장 최근 목격(${latest.seenAt}) · MVP 안내 기능`;
+}
+
+/* ─── 제보 목록 ──────────────────────────── */
+function renderFilters(){
+  const counts={all:reports.length};
+  Object.keys(STATUS).forEach(k=>counts[k]=reports.filter(r=>r.status===k).length);
+  const items=[["all","전체"],["important","중요"],["trusted","신뢰"],["pending","확인 필요"],["hidden","숨김"]];
+  $("#filters").innerHTML=items.map(([k,label])=>
+    `<button class="chip ${activeFilter===k?"on":""}" data-f="${k}" type="button">${label} ${counts[k]||0}</button>`
+  ).join("");
+  $("#filters").querySelectorAll(".chip").forEach(b=>{
+    b.addEventListener("click",()=>{activeFilter=b.dataset.f; renderList(); renderFilters();});
+  });
+}
+
+function renderList(){
+  const list=[...reports]
+    .filter(r=>activeFilter==="all"||r.status===activeFilter)
+    .sort((a,b)=>timeVal(a.seenAt)-timeVal(b.seenAt));
+  $("#reportCnt").textContent=`${reports.length}건`;
+  $("#reportList").innerHTML=list.map(r=>{
+    const st=STATUS[r.status];
+    const isNew=newReportIds.includes(r.id);
+    return `<li>
+      <button class="report-item ${r.status==="hidden"?"dim":""} ${activeReport===r.id?"active":""}" data-id="${r.id}" type="button">
+        <span class="thumb" aria-hidden="true">${thumbHtml(r)}</span>
+        <span class="ri-body">
+          <span class="ri-top">
+            <span class="seen-time">${r.seenAt}</span>
+            <span class="badge b-${st.cls}">${st.label}</span>
+            ${isNew?'<span class="badge b-new">NEW</span>':''}
+          </span>
+          <span class="ri-place">${r.place}</span>
+          <span class="ri-sub"><span class="dir">${r.dir}</span><span>접수 ${r.receivedAt}</span></span>
+        </span>
+      </button>
+    </li>`;
+  }).join("") || `<li style="padding:24px;text-align:center;color:var(--ink-faint);font-size:13px">해당 상태의 제보가 없어요</li>`;
+
+  $("#reportList").querySelectorAll(".report-item").forEach(el=>{
+    el.addEventListener("click",()=>openDetail(+el.dataset.id));
+  });
+}
+
+/* ─── 상세 카드 ──────────────────────────── */
+function openDetail(id){
+  const r=reports.find(x=>x.id===id); if(!r)return;
+  activeReport=id;
+  const st=STATUS[r.status];
+  $("#detailPhoto").innerHTML=(r.photo?`<img src="${r.photo}" alt="목격 사진">`:sceneSvg(r.scene,true))+
+    `<button class="detail-close" id="detailClose" type="button" aria-label="닫기">✕</button>`;
+  $("#dSeen").textContent=r.seenAt+" 목격";
+  $("#dBadge").textContent=st.label; $("#dBadge").className="badge b-"+st.cls;
+  $("#dPlace").textContent=r.place;
+  $("#dSeen2").textContent="오늘 "+r.seenAt;
+  $("#dRecv").textContent="오늘 "+r.receivedAt;
+  $("#dDir").textContent=r.dir;
+  $("#dMemo").textContent=r.memo?("“"+r.memo+"”"):"작성된 메모가 없어요";
+  $("#dContact").innerHTML=r.contact
+    ? `<span class="contact-ok">📞 제보자와 연락 가능</span><span style="color:var(--ink-faint);font-weight:500">· 채팅으로 추가 질문할 수 있어요</span>`
+    : `<span class="contact-no">🔕 제보자가 연락처를 남기지 않았어요</span>`;
+
+  $("#statusActions").innerHTML=["trusted","pending","hidden","important"].map(k=>{
+    const s=STATUS[k];
+    return `<button class="st-btn ${r.status===k?"sel-"+k:""}" data-st="${k}" type="button">
+      <span class="ic">${s.ic}</span>${s.label}</button>`;
+  }).join("");
+  $("#statusActions").querySelectorAll(".st-btn").forEach(b=>{
+    b.addEventListener("click",()=>{
+      const next=b.dataset.st;
+      if(r.status===next)return;
+      r.status=next;
+      newReportIds=newReportIds.filter(x=>x!==id); updateNoti();
+      const msgs={
+        trusted:`${r.seenAt} 제보를 신뢰로 표시했어요 — 지도 경로에 반영됩니다`,
+        important:`${r.seenAt} 제보를 중요로 표시했어요`,
+        pending:`${r.seenAt} 제보를 확인 필요로 되돌렸어요`,
+        hidden:`${r.seenAt} 제보를 숨겼어요 — 지도에서 제외됩니다`,
+      };
+      toast(msgs[next]);
+      renderAll(); openDetail(id);
+    });
+  });
+
+  document.getElementById("detailClose").addEventListener("click",closeDetail);
+  $("#overlay").classList.add("open");
+  renderMap(); renderList();
+}
+function closeDetail(){
+  activeReport=null;
+  $("#overlay").classList.remove("open");
+  renderMap(); renderList();
+}
+$("#overlay").addEventListener("click",e=>{if(e.target===e.currentTarget)closeDetail();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDetail();});
+
+/* ─── 공고·공유 화면 ─────────────────────── */
+/* 데모용 QR 패턴 */
+(function drawQr(){
+  const n=21, seed=20260720;
+  let s=seed;
+  const rnd=()=>{s=(s*1103515245+12345)%2147483648; return s/2147483648};
+  let cells="";
+  const finder=(fx,fy)=>{
+    cells+=`<rect x="${fx}" y="${fy}" width="7" height="7" fill="#1D1D1D"/>
+      <rect x="${fx+1}" y="${fy+1}" width="5" height="5" fill="#fff"/>
+      <rect x="${fx+2}" y="${fy+2}" width="3" height="3" fill="#1D1D1D"/>`;
+  };
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+    const inFinder=(x<8&&y<8)||(x>=n-8&&y<8)||(x<8&&y>=n-8);
+    if(!inFinder && rnd()>.52) cells+=`<rect x="${x}" y="${y}" width="1" height="1" fill="#1D1D1D"/>`;
+  }
+  finder(0,0); finder(n-7,0); finder(0,n-7);
+  $("#qrBox").innerHTML=`<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges">${cells}</svg>`;
+})();
+
+document.querySelectorAll(".share-item").forEach(b=>{
+  b.addEventListener("click",()=>{
+    const k=b.dataset.share;
+    if(k==="preview"){ switchView("witness"); return; }
+    const msgs={
+      link:"제보 링크가 복사됐어요 (데모)",
+      kakao:"카카오톡 공유 화면이 열려요 (데모)",
+      daangn:"당근 동네생활 글쓰기로 이동해요 (데모)",
+      insta:"인스타 스토리용 이미지를 저장했어요 (데모)",
+      print:"QR 포함 A4 전단지 PDF를 만들었어요 (데모)",
+    };
+    toast(msgs[k]||"공유 (데모)");
+  });
+});
+$("#editNotice").addEventListener("click",()=>toast("공고 수정 화면은 다음 스프린트 범위예요 (데모)"));
+$("#shareBtn").addEventListener("click",()=>switchView("notice"));
+
+/* ─── 목격자 제보 화면 ────────────────────── */
+let picked=null;   /* {x,y} SVG 좌표 */
+let photoData=null;
+
+/* 미니 지도: 본 지도 배경 복제 */
+(function initMiniMap(){
+  const base=document.getElementById("baseMap").cloneNode(true);
+  base.removeAttribute("id");
+  const svg=$("#miniMapSvg");
+  svg.appendChild(base);
+  const marker=document.createElementNS("http://www.w3.org/2000/svg","g");
+  marker.setAttribute("id","miniMarker");
+  svg.appendChild(marker);
+
+  const pick=(cx,cy)=>{
+    picked={x:Math.round(cx), y:Math.round(cy)};
+    marker.innerHTML=`
+      <circle cx="${cx}" cy="${cy}" r="26" fill="color-mix(in srgb, var(--pending) 25%, transparent)"/>
+      <path d="M${cx} ${cy+18} C${cx-14} ${cy+3} ${cx-14} ${cy-15} ${cx} ${cy-15} C${cx+14} ${cy-15} ${cx+14} ${cy+3} ${cx} ${cy+18} Z"
+        fill="var(--pending)" stroke="var(--surface)" stroke-width="2.5"/>
+      <circle cx="${cx}" cy="${cy-3}" r="5" fill="var(--surface)"/>`;
+    $("#miniHint").textContent="목격 위치가 표시됐어요 — 다시 탭하면 옮길 수 있어요";
+    $("#formErr").classList.remove("show");
+  };
+
+  svg.addEventListener("click",e=>{
+    const rect=svg.getBoundingClientRect();
+    pick((e.clientX-rect.left)/rect.width*820, (e.clientY-rect.top)/rect.height*560);
+  });
+
+  document.querySelectorAll("#quickSpots .chip").forEach(c=>{
+    c.addEventListener("click",()=>{
+      const [x,y,name]=c.dataset.spot.split(",");
+      pick(+x,+y);
+      $("#wPlace").value=name;
+      document.querySelectorAll("#quickSpots .chip").forEach(o=>o.classList.toggle("on",o===c));
+    });
+  });
+})();
+
+/* 사진 업로드(미리보기) */
+$("#wPhoto").addEventListener("change",e=>{
+  const f=e.target.files[0];
+  if(!f)return;
+  photoData=URL.createObjectURL(f);
+  $("#photoPreview").innerHTML=`<img src="${photoData}" alt="">`;
+  $("#photoLabel").innerHTML=`${f.name}<br><b style="color:var(--navy)">탭해서 다른 사진 선택</b>`;
+});
+$("#photoDrop").addEventListener("click",e=>{
+  if(e.target.id!=="wPhoto") $("#wPhoto").click();
+});
+
+/* 제출 */
+$("#wSubmit").addEventListener("click",()=>{
+  if(!picked){ $("#formErr").classList.add("show"); $("#miniMap").scrollIntoView({behavior:"smooth",block:"center"}); return; }
+  const seenAt=$("#wTime").value||"18:40";
+  const r={
+    id:Math.max(...reports.map(r=>r.id))+1,
+    seenAt,
+    receivedAt:addMinutes(seenAt, 7),
+    place:$("#wPlace").value.trim()||"목격자가 지도에 찍은 위치",
+    dir:$("#wDir").value,
+    memo:$("#wMemo").value.trim(),
+    status:"pending",
+    contact:$("#wContact").checked,
+    x:picked.x, y:picked.y,
+    scene:"street",
+    photo:photoData,
+  };
+  reports.push(r);
+  newReportIds.push(r.id);
+  updateNoti(); renderAll();
+  $("#witnessForm").style.display="none";
+  $("#witnessDone").classList.add("show");
+  window.scrollTo({top:0,behavior:"smooth"});
+});
+
+$("#goMap").addEventListener("click",()=>switchView("map"));
+$("#newReport").addEventListener("click",()=>{
+  /* 폼 초기화 */
+  picked=null; photoData=null;
+  $("#miniMarker").innerHTML="";
+  $("#miniHint").textContent="지도를 탭하면 목격 위치가 표시돼요";
+  $("#wPlace").value=""; $("#wMemo").value=""; $("#wPhoto").value="";
+  $("#photoPreview").textContent="📷";
+  $("#photoLabel").innerHTML=`멀리서 찍은 사진도 큰 도움이 돼요<br><b style="color:var(--navy)">탭해서 사진 선택</b>`;
+  document.querySelectorAll("#quickSpots .chip").forEach(o=>o.classList.remove("on"));
+  $("#witnessForm").style.display="";
+  $("#witnessDone").classList.remove("show");
+  window.scrollTo({top:0});
+});
+
+/* ─── 기타 ───────────────────────────────── */
+$("#sheetHandle").addEventListener("click",()=>{
+  $("#reportSheet").classList.toggle("expanded");
+});
+
+function renderAll(){ renderMap(); renderZoneCard(); renderFilters(); renderList(); }
+renderAll();
+updateNoti();
+</script>

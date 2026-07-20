@@ -1,0 +1,138 @@
+/* ─── 멍백홈 공통 디자인 토큰 ─────────────── */
+:root{
+  --navy:#1D3E6B; --navy-deep:#142C4E; --navy-soft:#EAF0F8;
+  --bg:#F8F6F2; --surface:#FFFFFF; --surface-2:#F2EFE9;
+  --line:#E4E0D7; --ink:#26303C; --ink-soft:#5B6672; --ink-faint:#8B94A0;
+  --trust:#1E9E6A; --trust-bg:#E4F4EC;
+  --pending:#E8842C; --pending-bg:#FBEEDD;
+  --important:#D93F3F; --important-bg:#FBE6E6;
+  --hidden:#8A8F98; --hidden-bg:#EEEFF1;
+  --zone:#2E63C0;
+  --map-bg:#EFECE3; --map-park:#D3E4C6; --map-park-line:#B7CFA5;
+  --map-water:#C2DBEA; --map-water-line:#9FC4DC;
+  --map-road:#FFFFFF; --map-block:#E3DFD4;
+  --radius:14px;
+  --shadow:0 2px 10px rgba(29,62,107,.08);
+  --shadow-lg:0 12px 40px rgba(20,44,78,.22);
+  --on-navy:#FFFFFF;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --navy:#7FA8E0; --navy-deep:#A9C6EE; --navy-soft:#1E2A3C;
+    --bg:#161A21; --surface:#1F252E; --surface-2:#262D38;
+    --line:#333B47; --ink:#E8EAEE; --ink-soft:#A6AEB9; --ink-faint:#767F8B;
+    --trust:#3FBF8A; --trust-bg:#173328;
+    --pending:#F0964B; --pending-bg:#3A2A18;
+    --important:#F06A6A; --important-bg:#3B1F1F;
+    --hidden:#8A93A0; --hidden-bg:#2A303A;
+    --zone:#6E9BE0;
+    --map-bg:#232830; --map-park:#2C3B2C; --map-park-line:#3C5138;
+    --map-water:#24384A; --map-water-line:#31536E;
+    --map-road:#3A4250; --map-block:#2C333E;
+    --shadow:0 2px 10px rgba(0,0,0,.35);
+    --shadow-lg:0 12px 40px rgba(0,0,0,.55);
+    --on-navy:#161A21;
+  }
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+  background:var(--bg); color:var(--ink);
+  font-size:15px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit; cursor:pointer; border:none; background:none; color:inherit}
+input,select,textarea{font:inherit; color:inherit}
+button:focus-visible,[tabindex]:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:2px solid var(--navy); outline-offset:2px; border-radius:6px}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important; animation:none!important} }
+
+/* ─── 헤더 ─────────────────────────────── */
+header.mb{
+  position:sticky; top:0; z-index:40;
+  background:var(--surface); border-bottom:1px solid var(--line);
+  padding:0 20px; display:flex; align-items:center; gap:14px; height:60px;
+}
+.logo{display:flex; align-items:center; gap:9px; font-weight:800; font-size:18px; color:var(--navy);
+  letter-spacing:-.02em; text-decoration:none}
+.logo svg{width:26px;height:26px}
+.page-name{font-size:13px; color:var(--ink-soft); padding-left:14px; border-left:1px solid var(--line)}
+.page-name b{color:var(--ink); font-weight:700}
+.header-right{margin-left:auto; display:flex; align-items:center; gap:10px}
+.live-chip{display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700;
+  color:var(--important); background:var(--important-bg); border-radius:99px; padding:5px 12px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--important); animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.navy-btn{display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  background:var(--navy); color:var(--on-navy); font-weight:700; font-size:13.5px;
+  padding:9px 16px; border-radius:10px; text-decoration:none}
+.navy-btn:hover{filter:brightness(1.08)}
+.ghost-btn{display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  padding:9px 16px; border-radius:10px; font-size:13.5px; font-weight:800;
+  border:1.5px solid var(--navy); color:var(--navy); background:var(--surface)}
+
+/* ─── 카드·배지·칩 ───────────────────────── */
+.card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
+.badge{font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:99px}
+.b-trusted{color:var(--trust); background:var(--trust-bg)}
+.b-pending{color:var(--pending); background:var(--pending-bg)}
+.b-important{color:var(--important); background:var(--important-bg)}
+.b-hidden{color:var(--hidden); background:var(--hidden-bg)}
+.b-new{color:#fff; background:var(--important)}
+.chip{font-size:12px; font-weight:700; padding:5px 11px; border-radius:99px;
+  background:var(--surface-2); color:var(--ink-soft); border:1px solid var(--line)}
+.chip.on{background:var(--navy); color:var(--on-navy); border-color:var(--navy)}
+.caution{background:var(--pending-bg); border:1px solid color-mix(in srgb, var(--pending) 35%, transparent);
+  border-radius:11px; padding:10px 13px; font-size:12.5px; line-height:1.5}
+.caution b{color:var(--pending)}
+
+/* ─── 지도 컨테이너 공통 ──────────────────── */
+.map-wrap{position:relative; background:var(--map-bg); border:1px solid var(--line);
+  border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow)}
+.map-wrap svg.mb-map{display:block; width:100%; height:auto}
+.map-wrap .kakao-host{width:100%; aspect-ratio:820/560}
+.pin{cursor:pointer}
+.pin .pin-body{transition:transform .15s ease; transform-origin:center bottom; transform-box:fill-box}
+.pin:hover .pin-body{transform:scale(1.15)}
+.time-chip{font-size:12px; font-weight:800; letter-spacing:.01em}
+.maplabel{font-size:12px; fill:var(--ink-faint); font-weight:600}
+.maplabel.big{font-size:13px}
+.trail{stroke-dasharray:7 6; animation:trailmove 30s linear infinite}
+@keyframes trailmove{to{stroke-dashoffset:-260}}
+.zone-circle{animation:zonepulse 2.6s ease-in-out infinite}
+@keyframes zonepulse{0%,100%{opacity:.75}50%{opacity:.4}}
+
+/* 카카오맵용 HTML 핀 (CustomOverlay) */
+.kpin{position:relative; transform:translateY(-4px); cursor:pointer}
+.kpin .kp-chip{position:absolute; left:50%; top:-46px; transform:translateX(-50%);
+  background:var(--surface); border:1.5px solid currentColor; border-radius:99px;
+  padding:2px 10px; font-size:12px; font-weight:800; white-space:nowrap}
+.kpin .kp-drop{width:26px; height:30px; margin:0 auto;
+  background:currentColor; border:2.5px solid var(--surface);
+  border-radius:50% 50% 50% 50% / 46% 46% 60% 60%;
+  clip-path:polygon(0 0,100% 0,100% 68%,50% 100%,0 68%);
+  display:flex; align-items:center; justify-content:center}
+.kpin .kp-dot{width:9px;height:9px;border-radius:50%;background:var(--surface); margin-top:-4px}
+.kpin.kp-star{color:var(--navy)}
+.kpin.kp-star .kp-chip{background:var(--navy); color:var(--on-navy); border-color:var(--navy)}
+
+/* ─── 토스트 ───────────────────────────── */
+.toast{position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(20px);
+  background:var(--navy-deep); color:var(--on-navy);
+  padding:11px 20px; border-radius:12px; font-size:13.5px; font-weight:700;
+  box-shadow:var(--shadow-lg); opacity:0; pointer-events:none;
+  transition:opacity .25s, transform .25s; z-index:80; max-width:88vw; text-align:center}
+@media (prefers-color-scheme: dark){ .toast{color:var(--bg)} }
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+/* ─── 모바일 헤더 ─────────────────────────── */
+@media (max-width: 960px){
+  header.mb{padding:0 12px; gap:8px; height:54px}
+  .logo{font-size:16px; white-space:nowrap}
+  .logo svg{width:22px;height:22px}
+  .live-chip{font-size:11px; padding:4px 9px; white-space:nowrap}
+  .navy-btn{font-size:12px; padding:8px 11px; white-space:nowrap}
+  .page-name{display:none}
+}
