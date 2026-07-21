@@ -145,7 +145,8 @@
   <div class="page-name"><b>유실목격지도</b> · 제보는 한곳에, 수색은 더 똑똑하게</div>
   <div class="header-right">
     <span class="live-chip"><span class="live-dot"></span><span id="dday">찾는 중</span></span>
-    <button class="ghost-btn" id="notifBtn" type="button" title="새 제보 브라우저 알림">🔔 알림 켜기</button>
+    <button class="ghost-btn" id="addBtn" type="button" title="전화 등 외부로 받은 제보를 지도에 직접 등록">＋ 직접 제보 추가</button>
+    <button class="ghost-btn" id="notifBtn" type="button" title="새 제보 브라우저 알림">🔔 알림</button>
     <a class="navy-btn" href="/share">제보 링크 공유</a>
   </div>
 </header>
@@ -193,6 +194,7 @@
       </div>
       <div class="dog-facts" id="dogFacts"></div>
       <div class="caution" id="dogCaution"></div>
+      <a href="/new" style="font-size:12px;font-weight:700;color:var(--navy);text-decoration:none;text-align:center">＋ 다른 강아지 유실 공고 등록하기 →</a>
     </section>
 
     <section class="card zone-card zone-wrap" aria-label="우선 수색 구역 안내">
@@ -241,7 +243,61 @@
   </div>
 </div>
 
+<!-- 보호자 직접 제보 추가 모달 -->
+<div class="overlay" id="addOverlay">
+  <div class="detail" role="dialog" aria-modal="true" aria-label="직접 제보 추가">
+    <div class="detail-body">
+      <div class="detail-title" style="justify-content:space-between">
+        <span class="seen">직접 제보 추가</span>
+        <button class="chip" type="button" id="addClose">닫기 ✕</button>
+      </div>
+      <p style="margin:0;font-size:12.5px;color:var(--ink-soft)">전화·SNS 등 외부로 받은 목격 정보를 지도에 직접 기록합니다.</p>
+      <div class="af" id="addLoc" style="font-size:12.5px;font-weight:700;color:var(--navy);background:var(--navy-soft);border-radius:10px;padding:9px 12px"></div>
+      <div class="af">
+        <label class="afl" for="addTime">목격 시각</label>
+        <input type="time" id="addTime" style="width:100%;border:1.5px solid var(--line);border-radius:11px;background:var(--surface);padding:10px 12px;font-size:14px">
+      </div>
+      <div class="af">
+        <span class="afl">강아지가 간 방향</span>
+        <div class="dir8" id="dir8"></div>
+      </div>
+      <div class="af">
+        <label class="afl" for="addPlace">장소 설명</label>
+        <input type="text" id="addPlace" maxlength="80" placeholder="예: 당현천 남단 다리 근처" style="width:100%;border:1.5px solid var(--line);border-radius:11px;background:var(--surface);padding:10px 12px;font-size:14px">
+      </div>
+      <div class="af">
+        <label class="afl" for="addMemo">메모 (제보자 말 그대로)</label>
+        <textarea id="addMemo" maxlength="500" placeholder="예: 이웃 김씨가 산책 중 다리 밑에서 봤다고 전화 주심" style="width:100%;border:1.5px solid var(--line);border-radius:11px;background:var(--surface);padding:10px 12px;font-size:14px;resize:vertical;min-height:60px"></textarea>
+      </div>
+      <div class="af">
+        <span class="afl">신뢰 상태</span>
+        <div class="stat3" id="addStatus"></div>
+      </div>
+      <label class="afl" style="display:flex;gap:9px;align-items:center;cursor:pointer;font-weight:600">
+        <input type="checkbox" id="addContact" style="width:17px;height:17px;accent-color:var(--navy)"> 제보자와 다시 연락할 수 있어요
+      </label>
+      <button class="submit-btn" id="addSave" type="button" style="width:100%;padding:14px;border-radius:12px;background:var(--navy);color:var(--on-navy);font-size:15px;font-weight:800">지도에 등록</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status"></div>
+
+<style>
+  .af{display:grid;gap:6px}
+  .afl{font-size:12.5px;font-weight:800;color:var(--ink-soft)}
+  .dir8{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .dir8 button{padding:9px 4px;border-radius:10px;font-size:12.5px;font-weight:800;
+    border:1.5px solid var(--line);background:var(--surface);color:var(--ink-soft)}
+  .dir8 button.on{border-color:var(--navy);background:var(--navy-soft);color:var(--navy)}
+  .stat3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .stat3 button{padding:9px 4px;border-radius:10px;font-size:12.5px;font-weight:800;
+    border:1.5px solid var(--line);background:var(--surface);color:var(--ink-soft)}
+  .stat3 button.on-trusted{border-color:var(--trust);background:var(--trust-bg);color:var(--trust)}
+  .stat3 button.on-important{border-color:var(--important);background:var(--important-bg);color:var(--important)}
+  .stat3 button.on-pending{border-color:var(--pending);background:var(--pending-bg);color:var(--pending)}
+  .addmode-on #mapContainer{outline:3px solid var(--pending);outline-offset:-3px;border-radius:var(--radius)}
+</style>
 
 <script src="/config.js"></script>
 <script src="/mapengine.js"></script>
@@ -437,15 +493,88 @@ if(("Notification" in window)&&Notification.permission==="granted") $("#notifBtn
 
 $("#sheetHandle").addEventListener("click",()=>$("#reportSheet").classList.toggle("expanded"));
 
+/* ── 보호자 직접 제보 추가 ── */
+let addMode=false, addPick=null, addBearing=null, addStatusVal="trusted";
+const DIR8=[["북서",315],["북",0],["북동",45],["서",270],["없음",null],["동",90],["남서",225],["남",180],["남동",135]];
+
+$("#addBtn").addEventListener("click",()=>{
+  addMode=!addMode;
+  document.body.classList.toggle("addmode-on", addMode);
+  engine&&engine.setPickable&&engine.setPickable(addMode);
+  $("#addBtn").classList.toggle("on", addMode);
+  if(addMode) toast("지도에서 강아지를 본 위치를 탭하세요 (다시 누르면 취소)");
+});
+
+function onMapTap(p){
+  if(!addMode) return;
+  addMode=false;
+  document.body.classList.remove("addmode-on");
+  engine&&engine.setPickable&&engine.setPickable(false);
+  openAdd(p);
+}
+
+function openAdd(p){
+  addPick=p; addBearing=null; addStatusVal="trusted";
+  const now=new Date();
+  $("#addTime").value=String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+  $("#addLoc").textContent=`📍 지도에 찍은 위치 (${p.x}, ${p.y}) — 방향을 고르면 화살표로 표시돼요`;
+  $("#addPlace").value=""; $("#addMemo").value=""; $("#addContact").checked=false;
+  // 방향 8칸
+  $("#dir8").innerHTML=DIR8.map(([label,deg])=>
+    `<button type="button" data-deg="${deg===null?'':deg}" class="${deg===null?'on':''}">${label}</button>`).join("");
+  $("#dir8").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+    addBearing=b.dataset.deg===""?null:+b.dataset.deg;
+    $("#dir8").querySelectorAll("button").forEach(o=>o.classList.remove("on"));
+    b.classList.add("on");
+    engine.setMarker(addPick.x, addPick.y, addBearing);
+  }));
+  // 상태 3칸
+  const STAT=[["trusted","신뢰"],["important","중요"],["pending","확인 필요"]];
+  $("#addStatus").innerHTML=STAT.map(([k,l])=>
+    `<button type="button" data-st="${k}" class="${k===addStatusVal?'on-'+k:''}">${l}</button>`).join("");
+  $("#addStatus").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+    addStatusVal=b.dataset.st;
+    $("#addStatus").querySelectorAll("button").forEach(o=>o.className="");
+    b.classList.add("on-"+addStatusVal);
+  }));
+  engine.setMarker(addPick.x, addPick.y, null);
+  $("#addOverlay").classList.add("open");
+}
+function closeAdd(){ $("#addOverlay").classList.remove("open"); engine&&engine.clearMarker&&engine.clearMarker(); renderMap(); }
+$("#addClose").addEventListener("click",closeAdd);
+$("#addOverlay").addEventListener("click",e=>{if(e.target===e.currentTarget)closeAdd();});
+
+$("#addSave").addEventListener("click",async()=>{
+  if(!addPick) return;
+  const btn=$("#addSave"); btn.disabled=true; btn.textContent="등록 중…";
+  try{
+    const r=await api("/api/reports",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        seenAt:$("#addTime").value||"12:00",
+        x:addPick.x, y:addPick.y, bearing:addBearing,
+        place:$("#addPlace").value.trim()||"보호자가 지도에 직접 등록",
+        dir:addBearing===null?"방향 확인 안 됨":MapEngine.bearingToKo(addBearing),
+        memo:$("#addMemo").value.trim(),
+        status:addStatusVal, contact:$("#addContact").checked, source:"owner",
+      })});
+    knownIds.add(r.id);
+    $("#addOverlay").classList.remove("open");
+    engine&&engine.clearMarker&&engine.clearMarker();
+    await refreshReports();
+    toast("지도에 제보를 등록했어요");
+  }catch(e){ toast("등록에 실패했어요 — 서버 연결을 확인해주세요"); }
+  finally{ btn.disabled=false; btn.textContent="지도에 등록"; }
+});
+
 function renderAll(){ renderMap(); renderZoneCard(); renderFilters(); renderList(); }
 
 /* ── 시작 ── */
 (async function init(){
   try{ await loadNotice(); }catch(e){ toast("서버에 연결할 수 없어요 — py server.py 로 서버를 켜주세요"); return; }
-  MapEngine.create(document.getElementById("mapContainer"), {mode:"view", onPinClick:openDetail}, eng=>{
+  MapEngine.create(document.getElementById("mapContainer"), {mode:"view", onPinClick:openDetail, onMapTap}, eng=>{
     engine=eng; refreshReports();
   });
-  setInterval(()=>refreshReports().catch(()=>{}), 4000);  /* 새 제보 폴링 */
+  setInterval(()=>refreshReports().catch(()=>{}), 2000);  /* 새 제보 실시간 폴링 */
 })();
 </script>
 </body>

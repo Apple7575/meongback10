@@ -118,6 +118,18 @@ header.mb{
 .kpin.kp-star{color:var(--navy)}
 .kpin.kp-star .kp-chip{background:var(--navy); color:var(--on-navy); border-color:var(--navy)}
 
+/* 카카오맵 방향 화살표 마커 (중심점 기준, shaft가 point를 축으로 회전) */
+.kpin.karrow{position:relative; width:0; height:0; color:inherit}
+.karrow .ka-shaft{position:absolute; left:-2.5px; bottom:0; width:5px; height:34px;
+  background:currentColor; border-radius:3px; transform-origin:bottom center}
+.karrow .ka-shaft::before{content:""; position:absolute; top:-7px; left:50%; transform:translateX(-50%);
+  border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:12px solid currentColor}
+.karrow .ka-dot{position:absolute; left:-6.5px; top:-6.5px; width:13px; height:13px; border-radius:50%;
+  background:currentColor; border:2.5px solid var(--surface)}
+.karrow .ka-chip{position:absolute; left:50%; top:12px; transform:translateX(-50%);
+  background:var(--surface); border:1.5px solid currentColor; border-radius:99px;
+  padding:1px 8px; font-size:12px; font-weight:800; color:currentColor; white-space:nowrap}
+
 /* ─── 토스트 ───────────────────────────── */
 .toast{position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(20px);
   background:var(--navy-deep); color:var(--on-navy);

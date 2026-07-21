@@ -39,19 +39,19 @@ SEED = {
     },
     "reports": [
         {"id": 1, "seenAt": "17:10", "receivedAt": "17:24", "place": "GS25 중계점 편의점 앞",
-         "dir": "공원 방향으로 이동", "status": "trusted", "contact": True,
+         "dir": "남동쪽으로 이동", "bearing": 125, "status": "trusted", "source": "witness", "contact": True,
          "memo": "흰색 말티즈가 편의점 앞을 지나 공원 쪽으로 뛰어갔어요. 목줄은 없었고 많이 불안해 보였습니다.",
          "x": 222, "y": 150, "scene": "street", "photo": None},
         {"id": 2, "seenAt": "17:35", "receivedAt": "17:41", "place": "중계근린공원 입구",
-         "dir": "하천 방향으로 이동", "status": "pending", "contact": False,
+         "dir": "방향 확인 안 됨", "bearing": None, "status": "pending", "source": "witness", "contact": False,
          "memo": "공원 입구 벤치 근처에서 작은 흰 강아지를 봤어요. 사람이 다가가니 하천 쪽으로 갔습니다.",
          "x": 398, "y": 238, "scene": "park", "photo": None},
         {"id": 3, "seenAt": "17:50", "receivedAt": "18:20", "place": "중계아파트 3단지 놀이터",
-         "dir": "방향 확인 안 됨", "status": "hidden", "contact": False,
+         "dir": "방향 확인 안 됨", "bearing": None, "status": "hidden", "source": "witness", "contact": False,
          "memo": "놀이터에서 흰 강아지를 봤다는 제보. 확인 결과 이웃집 강아지로 밝혀져 숨김 처리했습니다.",
          "x": 236, "y": 382, "scene": "playground", "photo": None},
         {"id": 4, "seenAt": "18:05", "receivedAt": "18:12", "place": "당현천 산책로",
-         "dir": "남쪽 산책로 방향으로 이동", "status": "trusted", "contact": True,
+         "dir": "남쪽으로 이동", "bearing": 180, "status": "trusted", "source": "witness", "contact": True,
          "memo": "산책 중에 흰색 말티즈가 산책로를 따라 남쪽으로 내려가는 걸 봤어요. 사진 찍어뒀습니다.",
          "x": 622, "y": 352, "scene": "river", "photo": None},
     ],
@@ -73,6 +73,7 @@ MIME = {
 PAGES = {
     "/": "owner.html",
     "/share": "share.html",
+    "/new": "create.html",
 }
 
 
@@ -141,33 +142,89 @@ class Handler(BaseHTTPRequestHandler):
             self._file(path.lstrip("/"))
 
     def do_POST(self):
-        if urlparse(self.path).path != "/api/reports":
+        path = urlparse(self.path).path
+        if path == "/api/reports":
+            self._create_report()
+        elif path == "/api/notice":
+            self._create_notice()
+        else:
             self._json({"error": "not found"}, 404)
-            return
+
+    def _create_report(self):
         body = self._body()
         if body is None:
             return
         if not body.get("seenAt") or body.get("x") is None or body.get("y") is None:
             self._json({"error": "seenAt, x, y는 필수입니다"}, 400)
             return
+        # 방향(나침반/지도) — 0~360도, 북=0 시계방향. 없으면 핀만 표시
+        bearing = body.get("bearing")
+        try:
+            bearing = round(float(bearing)) % 360
+        except (TypeError, ValueError):
+            bearing = None
+        # 보호자가 직접 등록한 제보는 status를 지정할 수 있음(외부로 받은 신뢰 제보 등)
+        status = body.get("status") if body.get("status") in VALID_STATUS else "pending"
+        source = "owner" if body.get("source") == "owner" else "witness"
         db = load_db()
         report = {
             "id": max((r["id"] for r in db["reports"]), default=0) + 1,
             "seenAt": str(body["seenAt"])[:5],
             "receivedAt": datetime.now().strftime("%H:%M"),
-            "place": (str(body.get("place") or "").strip() or "목격자가 지도에 찍은 위치")[:80],
+            "place": (str(body.get("place") or "").strip() or "지도에 찍은 위치")[:80],
             "dir": str(body.get("dir") or "방향 확인 안 됨")[:40],
+            "bearing": bearing,
             "memo": str(body.get("memo") or "").strip()[:500],
-            "status": "pending",
+            "status": status,
+            "source": source,
             "contact": bool(body.get("contact")),
             "x": round(float(body["x"])), "y": round(float(body["y"])),
-            "scene": "street",
+            "scene": str(body.get("scene") or "street")[:20],
             "photo": body.get("photo") if isinstance(body.get("photo"), str)
                      and str(body.get("photo")).startswith("data:image/") else None,
         }
         db["reports"].append(report)
         save_db(db)
         self._json(report, 201)
+
+    def _create_notice(self):
+        body = self._body()
+        if body is None:
+            return
+        if not str(body.get("dogName") or "").strip():
+            self._json({"error": "강아지 이름은 필수입니다"}, 400)
+            return
+        if body.get("lostX") is None or body.get("lostY") is None:
+            self._json({"error": "유실 위치를 지도에 찍어주세요"}, 400)
+            return
+
+        def s(key, default="", n=60):
+            return (str(body.get(key) or "").strip() or default)[:n]
+
+        name = s("dogName", n=20)
+        slug = "dog-" + datetime.now().strftime("%m%d%H%M%S")
+        notice = {
+            "slug": slug,
+            "dogName": name,
+            "breed": s("breed", "믹스"),
+            "age": s("age", "나이 미상"),
+            "weight": s("weight", "체중 미상"),
+            "personality": s("personality", "정보 없음"),
+            "health": s("health", "특이사항 없음"),
+            "caution": s("caution",
+                         f"{name}를 발견하면 잡으려 하지 말고 위치와 사진만 제보해주세요.", 200),
+            "lostAt": s("lostAt", datetime.now().strftime("%Y-%m-%dT%H:%M"), 16),
+            "lostPlace": s("lostPlace", "지도에 찍은 위치", 80),
+            "lostX": round(float(body["lostX"])),
+            "lostY": round(float(body["lostY"])),
+            "status": "찾는 중",
+        }
+        db = load_db()
+        db["notice"] = notice
+        if body.get("resetReports"):     # 새 공고 → 제보 초기화
+            db["reports"] = []
+        save_db(db)
+        self._json(notice, 201)
 
     def do_PATCH(self):
         path = urlparse(self.path).path

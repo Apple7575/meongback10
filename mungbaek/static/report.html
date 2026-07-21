@@ -21,20 +21,29 @@
   .field{display:grid; gap:6px}
   .field > label, .field .flabel{font-size:12.5px; font-weight:800; color:var(--ink-soft)}
   .field .req{color:var(--important)}
-  .field input[type="time"],.field input[type="text"],.field select,.field textarea{
+  .field input[type="time"],.field input[type="text"],.field textarea{
     width:100%; border:1.5px solid var(--line); border-radius:11px;
     background:var(--surface); padding:11px 13px; font-size:14px}
   .field textarea{resize:vertical; min-height:72px}
-  .mini-map{position:relative; border:1.5px solid var(--line); border-radius:12px; overflow:hidden;
-    background:var(--map-bg)}
+  .mini-map{position:relative; border:1.5px solid var(--line); border-radius:12px; overflow:hidden; background:var(--map-bg)}
   .mini-map-hint{position:absolute; top:8px; left:8px; right:8px; z-index:5;
     background:color-mix(in srgb, var(--surface) 88%, transparent);
     border-radius:8px; padding:5px 10px; font-size:11.5px; font-weight:700;
     color:var(--ink-soft); text-align:center; pointer-events:none}
   .quick-spots{display:flex; gap:6px; flex-wrap:wrap}
+  /* 방향 선택 */
+  .dir-choices{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px}
+  .dir-btn{padding:10px 4px; border-radius:11px; font-size:12px; font-weight:800;
+    border:1.5px solid var(--line); background:var(--surface); color:var(--ink-soft);
+    display:flex; flex-direction:column; align-items:center; gap:3px; line-height:1.2}
+  .dir-btn .ic{font-size:17px; line-height:1}
+  .dir-btn:hover{border-color:var(--navy)}
+  .dir-btn.on{border-color:var(--navy); background:var(--navy-soft); color:var(--navy)}
+  .dir-result{font-size:12.5px; font-weight:700; color:var(--ink-soft);
+    background:var(--surface-2); border-radius:10px; padding:9px 12px; text-align:center}
+  .dir-result.set{color:var(--pending); background:var(--pending-bg)}
   .photo-drop{border:1.5px dashed var(--line); border-radius:12px; padding:14px;
-    display:flex; align-items:center; gap:11px; cursor:pointer;
-    background:var(--surface-2); font-size:13px; color:var(--ink-soft)}
+    display:flex; align-items:center; gap:11px; cursor:pointer; background:var(--surface-2); font-size:13px; color:var(--ink-soft)}
   .photo-drop:hover{border-color:var(--navy)}
   .photo-drop .pv{width:46px;height:46px;border-radius:9px;flex:none;overflow:hidden;background:var(--surface);
     display:flex;align-items:center;justify-content:center;font-size:19px;border:1px solid var(--line)}
@@ -51,8 +60,7 @@
   .form-err.show{display:block}
   .w-done{padding:28px 22px; text-align:center; display:none}
   .w-done.show{display:grid; gap:8px; justify-items:center}
-  .done-icon{width:66px;height:66px;border-radius:50%;
-    background:var(--trust-bg); color:var(--trust);
+  .done-icon{width:66px;height:66px;border-radius:50%; background:var(--trust-bg); color:var(--trust);
     display:flex;align-items:center;justify-content:center;font-size:30px}
   .w-done h3{margin:4px 0 0; font-size:18px; font-weight:800}
   .w-done p{margin:0; font-size:13.5px; color:var(--ink-soft); line-height:1.6}
@@ -122,20 +130,18 @@
     </div>
 
     <div class="field">
-      <label for="wPlace">장소 설명</label>
-      <input type="text" id="wPlace" maxlength="80" placeholder="예: 당현천 남단 다리 아래 벤치 근처">
+      <span class="flabel">강아지가 어느 쪽으로 갔나요? (선택)</span>
+      <div class="dir-choices">
+        <button class="dir-btn" type="button" data-dir="map"><span class="ic">🗺️</span>지도에서<br>방향 찍기</button>
+        <button class="dir-btn" type="button" data-dir="compass" id="compassBtn"><span class="ic">🧭</span>지금 보는<br>방향</button>
+        <button class="dir-btn on" type="button" data-dir="none"><span class="ic">📍</span>방향 없이<br>핀만</button>
+      </div>
+      <div class="dir-result" id="dirResult">방향 없이 핀으로 등록돼요</div>
     </div>
 
     <div class="field">
-      <label for="wDir">어느 방향으로 갔나요?</label>
-      <select id="wDir">
-        <option value="방향 확인 안 됨">잘 모르겠어요</option>
-        <option>공원 방향으로 이동</option>
-        <option>하천 방향으로 이동</option>
-        <option>남쪽 산책로 방향으로 이동</option>
-        <option>주택가 방향으로 이동</option>
-        <option>그 자리에 머물러 있었어요</option>
-      </select>
+      <label for="wPlace">장소 설명</label>
+      <input type="text" id="wPlace" maxlength="80" placeholder="예: 당현천 남단 다리 아래 벤치 근처">
     </div>
 
     <div class="field">
@@ -180,20 +186,24 @@
 <script src="/mapengine.js"></script>
 <script>
 const $=s=>document.querySelector(s);
-let picked=null, photoData=null, engine=null, notice=null;
+let picked=null, bearing=null, dirMode="none", dirPicking=false;
+let photoData=null, engine=null, notice=null;
 
 function toast(msg){
   const t=$("#toast"); t.textContent=msg; t.classList.add("show");
-  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2400);
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2600);
 }
 
-/* 현재 시각을 기본값으로 */
+/* 현재 시각 기본값 */
 (function(){
   const d=new Date();
   $("#wTime").value=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
 })();
 
-/* 공고 정보 */
+/* 나침반 없는 기기(데스크톱)면 나침반 버튼 숨김 */
+if(!MapEngine.hasCompass) $("#compassBtn").style.display="none";
+
+/* 공고 */
 fetch("/api/notice").then(r=>r.json()).then(n=>{
   notice=n;
   $("#wTitle").textContent=`${n.dogName}를 목격하셨나요?`;
@@ -203,26 +213,90 @@ fetch("/api/notice").then(r=>r.json()).then(n=>{
   document.title=`멍백홈 · ${n.dogName} 목격 제보`;
 }).catch(()=>toast("서버에 연결할 수 없어요"));
 
-/* 위치 선택 지도 */
-function pick(x,y){
+/* 마커 다시 그리기 */
+function renderMarker(){
+  if(!picked||!engine) return;
+  engine.setMarker(picked.x, picked.y, bearing);
+}
+
+/* 위치 선택 */
+function setLocation(x,y){
   picked={x,y};
-  engine&&engine.setMarker(x,y);
-  $("#miniHint").textContent="목격 위치가 표시됐어요 — 다시 탭하면 옮길 수 있어요";
+  renderMarker();
+  $("#miniHint").textContent = dirMode==="map"
+    ? "이제 강아지가 간 쪽을 한 번 더 탭하세요"
+    : "목격 위치가 표시됐어요 — 다시 탭하면 옮길 수 있어요";
   $("#formErr").classList.remove("show");
 }
-MapEngine.create(document.getElementById("miniMapContainer"),
-  {mode:"pick", onPick:p=>pick(p.x,p.y)}, eng=>{ engine=eng; });
 
+/* 방향(지도) 선택 */
+function setBearingFromTap(x,y){
+  bearing=MapEngine.bearingFromXY(picked.x, picked.y, x, y);
+  dirPicking=false;
+  renderMarker();
+  updateDirResult();
+  $("#miniHint").textContent="방향이 표시됐어요 — 방향 버튼으로 다시 정할 수 있어요";
+}
+
+function updateDirResult(){
+  const el=$("#dirResult");
+  if(bearing===null){ el.textContent="방향 없이 핀으로 등록돼요"; el.classList.remove("set"); }
+  else{ el.innerHTML=`강아지가 간 방향: <b>${MapEngine.bearingToKo(bearing)}</b> (${bearing}°) — 지도에 화살표로 표시돼요`; el.classList.add("set"); }
+}
+
+/* 지도 탭 통합 처리 */
+function onTap(p){
+  if(picked && dirPicking) setBearingFromTap(p.x, p.y);
+  else setLocation(p.x, p.y);
+}
+MapEngine.create(document.getElementById("miniMapContainer"),
+  {mode:"pick", onPick:onTap}, eng=>{ engine=eng; });
+
+/* 빠른 위치 칩 */
 document.querySelectorAll("#quickSpots .chip").forEach(c=>{
   c.addEventListener("click",()=>{
     const [x,y,name]=c.dataset.spot.split(",");
-    pick(+x,+y);
+    setLocation(+x,+y);
     $("#wPlace").value=name;
     document.querySelectorAll("#quickSpots .chip").forEach(o=>o.classList.toggle("on",o===c));
   });
 });
 
-/* 사진: 캔버스로 최대 900px 리사이즈 → dataURL (전송량 절약) */
+/* 방향 선택 버튼 */
+function selDirBtn(mode){
+  dirMode=mode;
+  document.querySelectorAll(".dir-btn").forEach(b=>b.classList.toggle("on", b.dataset.dir===mode));
+}
+document.querySelectorAll(".dir-btn").forEach(b=>{
+  b.addEventListener("click",async()=>{
+    const mode=b.dataset.dir;
+    if(mode==="none"){
+      selDirBtn("none"); bearing=null; dirPicking=false; renderMarker(); updateDirResult();
+      $("#miniHint").textContent="목격 위치가 표시됐어요 — 다시 탭하면 옮길 수 있어요";
+    }else if(mode==="map"){
+      selDirBtn("map");
+      if(!picked){ toast("먼저 지도에서 목격 위치를 탭해주세요"); return; }
+      dirPicking=true;
+      $("#miniHint").textContent="강아지가 간 쪽을 지도에서 한 번 더 탭하세요";
+      document.querySelector(".mini-map").scrollIntoView({behavior:"smooth",block:"center"});
+    }else if(mode==="compass"){
+      selDirBtn("compass");
+      if(!picked){ toast("먼저 지도에서 목격 위치를 탭해주세요"); return; }
+      $("#dirResult").textContent="방향 센서를 읽는 중… 강아지가 간 쪽을 향해 폰을 들어주세요";
+      try{
+        bearing=await MapEngine.captureHeading();
+        dirPicking=false; renderMarker(); updateDirResult();
+        toast("지금 바라보는 방향으로 등록됐어요");
+      }catch(e){
+        selDirBtn("map"); bearing=null;
+        $("#dirResult").textContent=e.message+" — 대신 지도에서 방향을 탭해주세요";
+        dirPicking=true;
+      }
+    }
+  });
+});
+
+/* 사진 리사이즈 */
 $("#wPhoto").addEventListener("change",e=>{
   const f=e.target.files[0]; if(!f)return;
   const img=new Image();
@@ -245,33 +319,30 @@ $("#wSubmit").addEventListener("click",async()=>{
     document.querySelector(".mini-map").scrollIntoView({behavior:"smooth",block:"center"}); return; }
   const btn=$("#wSubmit"); btn.disabled=true; btn.textContent="보내는 중…";
   try{
-    const res=await fetch("/api/reports",{method:"POST",
-      headers:{"Content-Type":"application/json"},
+    const res=await fetch("/api/reports",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
         seenAt:$("#wTime").value||"12:00",
-        x:picked.x, y:picked.y,
+        x:picked.x, y:picked.y, bearing,
         place:$("#wPlace").value.trim(),
-        dir:$("#wDir").value,
+        dir: bearing===null ? "방향 확인 안 됨" : MapEngine.bearingToKo(bearing),
         memo:$("#wMemo").value.trim(),
         contact:$("#wContact").checked,
-        photo:photoData,
+        photo:photoData, source:"witness",
       })});
     if(!res.ok) throw new Error(await res.text());
     if(notice) $("#doneMsg").innerHTML=`${notice.dogName} 보호자에게 방금 알림이 갔어요.<br>덕분에 ${notice.dogName}가 집에 갈 확률이 높아졌습니다. 감사합니다!`;
     $("#witnessForm").style.display="none";
     $("#witnessDone").classList.add("show");
     window.scrollTo({top:0,behavior:"smooth"});
-  }catch(err){
-    toast("제보 전송에 실패했어요 — 잠시 후 다시 시도해주세요");
-  }finally{
-    btn.disabled=false; btn.textContent="제보 보내기";
-  }
+  }catch(err){ toast("제보 전송에 실패했어요 — 잠시 후 다시 시도해주세요"); }
+  finally{ btn.disabled=false; btn.textContent="제보 보내기"; }
 });
 
-/* 폼 초기화 */
+/* 초기화 */
 $("#newReport").addEventListener("click",()=>{
-  picked=null; photoData=null;
+  picked=null; bearing=null; dirMode="none"; dirPicking=false; photoData=null;
   engine&&engine.clearMarker();
+  selDirBtn("none"); updateDirResult();
   $("#miniHint").textContent="지도를 탭하면 목격 위치가 표시돼요";
   $("#wPlace").value=""; $("#wMemo").value=""; $("#wPhoto").value="";
   $("#photoPreview").textContent="📷";
