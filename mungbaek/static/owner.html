@@ -121,13 +121,16 @@
       display:flex; flex-direction:column; overflow:hidden}
     .report-wrap.expanded{max-height:80dvh}
     /* 접힌 상태(200px)에서도 제보 목록이 보이도록 머리 부분을 압축 */
-    .report-head{padding:10px 14px 6px}
+    .report-head{padding:10px 14px 6px; flex:none}
     .sort-note{display:none}
     .report-wrap.expanded .sort-note{display:block}
-    .filters{padding:8px 14px; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none}
+    /* flex:none — 시트 높이가 모자랄 때 필터가 세로로 눌려 글자가 잘리던 문제 방지 */
+    .filters{padding:8px 14px; flex:none; flex-wrap:nowrap;
+      overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none}
     .filters::-webkit-scrollbar{display:none}
     .report-wrap.expanded .filters{flex-wrap:wrap}
     .filters .chip{flex:none}
+    .report-list{min-height:0}   /* flex 자식이 제대로 줄어들도록 */
     .sheet-handle{display:block; width:100%; padding:9px 0 3px; flex:none}
     .sheet-handle::before{content:""; display:block; width:42px; height:4.5px; border-radius:99px;
       background:var(--line); margin:0 auto}
