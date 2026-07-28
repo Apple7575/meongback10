@@ -103,20 +103,31 @@
 
   .sheet-handle{display:none}
   @media (max-width: 960px){
-    body{padding-bottom:280px}
+    body{padding-bottom:220px}
     .layout{grid-template-columns:1fr; padding:12px 12px 0; gap:12px}
     .map-note{display:none}
-    .legend{font-size:10.5px; padding:7px 9px; gap:3px; bottom:8px; left:8px}
+    /* 작은 지도를 가리지 않도록 범례를 가로 한 줄로 압축 */
+    .legend{font-size:10px; padding:6px 9px; bottom:8px; left:8px;
+      display:flex; flex-wrap:wrap; gap:3px 10px; max-width:calc(100% - 16px)}
     .lg-dot{width:8px;height:8px} .lg-zone{width:10px;height:10px}
     .side{display:contents}
+    .map-col{order:-2}        /* 모바일에선 지도가 첫 화면 */
     .dog-card-wrap{order:-1}
     .zone-wrap{order:1}
     .report-wrap{position:fixed; left:0; right:0; bottom:0; z-index:50;
       border-radius:18px 18px 0 0; border-bottom:none;
       box-shadow:0 -8px 30px rgba(20,44,78,.18);
-      max-height:262px; transition:max-height .3s ease;
+      max-height:200px; transition:max-height .3s ease;
       display:flex; flex-direction:column; overflow:hidden}
-    .report-wrap.expanded{max-height:76vh}
+    .report-wrap.expanded{max-height:80dvh}
+    /* 접힌 상태(200px)에서도 제보 목록이 보이도록 머리 부분을 압축 */
+    .report-head{padding:10px 14px 6px}
+    .sort-note{display:none}
+    .report-wrap.expanded .sort-note{display:block}
+    .filters{padding:8px 14px; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none}
+    .filters::-webkit-scrollbar{display:none}
+    .report-wrap.expanded .filters{flex-wrap:wrap}
+    .filters .chip{flex:none}
     .sheet-handle{display:block; width:100%; padding:9px 0 3px; flex:none}
     .sheet-handle::before{content:""; display:block; width:42px; height:4.5px; border-radius:99px;
       background:var(--line); margin:0 auto}
@@ -124,10 +135,17 @@
     .dog-facts{grid-template-columns:repeat(4,1fr)}
     .fact:nth-child(n+5){display:none}
   }
+  @media (max-width: 600px){
+    /* 지도를 화면의 주인공으로 — 헤더와 하단 시트를 뺀 높이만큼 */
+    .map-wrap .kakao-host{aspect-ratio:auto; height:calc(100dvh - 270px); min-height:300px}
+  }
   @media (max-width: 520px){
     .dog-facts{grid-template-columns:1fr 1fr}
     .fact:nth-child(n+5){display:block}
     .status-actions{grid-template-columns:repeat(2,1fr)}
+    /* 상세 모달을 바텀시트처럼 — 좁은 화면에서 읽기 쉽게 */
+    .overlay{padding:0; align-items:flex-end}
+    .detail{width:100%; max-height:92dvh; border-radius:18px 18px 0 0}
   }
 </style>
 </head>
@@ -145,9 +163,9 @@
   <div class="page-name"><b>유실목격지도</b> · 제보는 한곳에, 수색은 더 똑똑하게</div>
   <div class="header-right">
     <span class="live-chip"><span class="live-dot"></span><span id="dday">찾는 중</span></span>
-    <button class="ghost-btn" id="addBtn" type="button" title="전화 등 외부로 받은 제보를 지도에 직접 등록">＋ 직접 제보 추가</button>
-    <button class="ghost-btn" id="notifBtn" type="button" title="새 제보 브라우저 알림">🔔 알림</button>
-    <a class="navy-btn" href="/share">제보 링크 공유</a>
+    <button class="ghost-btn icon-only" id="addBtn" type="button" title="전화 등 외부로 받은 제보를 지도에 직접 등록" aria-label="직접 제보 추가">＋<span class="btn-lbl"> 직접 제보 추가</span></button>
+    <button class="ghost-btn icon-only" id="notifBtn" type="button" title="새 제보 브라우저 알림" aria-label="새 제보 알림">🔔<span class="btn-lbl"> 알림</span></button>
+    <a class="navy-btn" href="/share"><span class="btn-lbl">제보 링크 </span>공유</a>
   </div>
 </header>
 
@@ -353,7 +371,7 @@ async function loadNotice(){
     <div class="fact"><div class="k">건강</div><div class="v">${notice.health}</div></div>`;
   $("#dogCaution").innerHTML=`<b>발견 시 주의</b> · ${notice.caution}`;
   const d=Math.max(0,Math.floor((Date.now()-new Date(notice.lostAt))/86400000));
-  $("#dday").textContent=`${notice.status} D+${d}`;
+  $("#dday").innerHTML=`<span class="dd-status">${notice.status} </span>D+${d}`;
 }
 
 async function refreshReports({silent=false}={}){
@@ -486,10 +504,11 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDetail();});
 $("#notifBtn").addEventListener("click",async()=>{
   if(!("Notification" in window)){ toast("이 브라우저는 알림을 지원하지 않아요"); return; }
   const p=await Notification.requestPermission();
-  if(p==="granted"){ toast("새 제보가 오면 브라우저 알림으로 알려드릴게요"); $("#notifBtn").textContent="🔔 알림 켜짐"; }
+  if(p==="granted"){ toast("새 제보가 오면 브라우저 알림으로 알려드릴게요"); markNotifOn(); }
   else toast("알림 권한이 거부됐어요 — 브라우저 설정에서 허용할 수 있어요");
 });
-if(("Notification" in window)&&Notification.permission==="granted") $("#notifBtn").textContent="🔔 알림 켜짐";
+function markNotifOn(){ $("#notifBtn").innerHTML='🔔<span class="btn-lbl"> 알림 켜짐</span>'; }
+if(("Notification" in window)&&Notification.permission==="granted") markNotifOn();
 
 $("#sheetHandle").addEventListener("click",()=>$("#reportSheet").classList.toggle("expanded"));
 
