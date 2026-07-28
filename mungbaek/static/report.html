@@ -122,10 +122,7 @@
         <div class="mini-map-hint" id="miniHint">지도를 탭하면 목격 위치가 표시돼요</div>
       </div>
       <div class="quick-spots" id="quickSpots">
-        <button class="chip" type="button" data-spot="222,150,GS25 중계점 편의점 앞">편의점 앞</button>
-        <button class="chip" type="button" data-spot="398,238,중계근린공원 입구">공원 입구</button>
-        <button class="chip" type="button" data-spot="622,352,당현천 산책로">당현천 산책로</button>
-        <button class="chip" type="button" data-spot="580,470,당현천 남단 다리">남단 다리</button>
+        <button class="chip" type="button" id="useLoc">📍 내 현재 위치로</button>
       </div>
     </div>
 
@@ -203,7 +200,7 @@ function toast(msg){
 /* 나침반 없는 기기(데스크톱)면 나침반 버튼 숨김 */
 if(!MapEngine.hasCompass) $("#compassBtn").style.display="none";
 
-/* 공고 */
+/* 공고 → 지도 중심을 공고 위치로 맞춘 뒤 지도 생성 */
 fetch("/api/notice").then(r=>r.json()).then(n=>{
   notice=n;
   $("#wTitle").textContent=`${n.dogName}를 목격하셨나요?`;
@@ -211,6 +208,9 @@ fetch("/api/notice").then(r=>r.json()).then(n=>{
   $("#wDogMeta").textContent=`${n.breed} · ${n.weight} · ${n.personality}`;
   $("#wCaution").innerHTML=`<b>잡으려 하지 마세요!</b> ${n.caution}`;
   document.title=`멍백홈 · ${n.dogName} 목격 제보`;
+  MapEngine.setGeoCenter(n.centerLat, n.centerLng);
+  MapEngine.create(document.getElementById("miniMapContainer"),
+    {mode:"pick", onPick:onTap}, eng=>{ engine=eng; });
 }).catch(()=>toast("서버에 연결할 수 없어요"));
 
 /* 마커 다시 그리기 */
@@ -249,17 +249,21 @@ function onTap(p){
   if(picked && dirPicking) setBearingFromTap(p.x, p.y);
   else setLocation(p.x, p.y);
 }
-MapEngine.create(document.getElementById("miniMapContainer"),
-  {mode:"pick", onPick:onTap}, eng=>{ engine=eng; });
+/* 지도 생성은 공고(중심 좌표)를 받은 뒤 위 fetch에서 수행 */
 
-/* 빠른 위치 칩 */
-document.querySelectorAll("#quickSpots .chip").forEach(c=>{
-  c.addEventListener("click",()=>{
-    const [x,y,name]=c.dataset.spot.split(",");
-    setLocation(+x,+y);
-    $("#wPlace").value=name;
-    document.querySelectorAll("#quickSpots .chip").forEach(o=>o.classList.toggle("on",o===c));
-  });
+/* 현재 위치(GPS)로 목격 위치 지정 — 목격자는 본 자리에 서 있으므로 GPS가 가장 정확 */
+$("#useLoc").addEventListener("click",()=>{
+  if(!navigator.geolocation){ toast("이 브라우저는 위치를 지원하지 않아요"); return; }
+  toast("현재 위치를 찾는 중…");
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const p=MapEngine.latLngToXy(pos.coords.latitude, pos.coords.longitude);
+    const x=Math.round(p.x), y=Math.round(p.y);
+    dirPicking=false;
+    setLocation(x,y);
+    engine&&engine.setCenter&&engine.setCenter(x,y);
+    toast("현재 위치로 찍었어요 — 다르면 지도를 탭해 옮기세요");
+  }, ()=>toast("위치 권한이 거부됐어요 — 지도를 탭해 위치를 찍어주세요"),
+  {enableHighAccuracy:true, timeout:8000, maximumAge:60000});
 });
 
 /* 방향 선택 버튼 */

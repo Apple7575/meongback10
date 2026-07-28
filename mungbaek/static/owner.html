@@ -571,6 +571,7 @@ function renderAll(){ renderMap(); renderZoneCard(); renderFilters(); renderList
 /* ── 시작 ── */
 (async function init(){
   try{ await loadNotice(); }catch(e){ toast("서버에 연결할 수 없어요 — py server.py 로 서버를 켜주세요"); return; }
+  MapEngine.setGeoCenter(notice.centerLat, notice.centerLng);   /* 공고 위치를 지도 중심으로 */
   MapEngine.create(document.getElementById("mapContainer"), {mode:"view", onPinClick:openDetail, onMapTap}, eng=>{
     engine=eng; refreshReports();
   });

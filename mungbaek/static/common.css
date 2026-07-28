@@ -91,8 +91,9 @@ header.mb{
 /* ─── 지도 컨테이너 공통 ──────────────────── */
 .map-wrap{position:relative; background:var(--map-bg); border:1px solid var(--line);
   border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow)}
-.map-wrap svg.mb-map{display:block; width:100%; height:auto}
-.map-wrap .kakao-host{width:100%; aspect-ratio:820/560}
+/* 지도 크기 — owner의 .map-wrap 과 create/report의 .mini-map 모두 적용 */
+svg.mb-map{display:block; width:100%; height:auto}
+.kakao-host{width:100%; aspect-ratio:820/560}
 .pin{cursor:pointer}
 .pin .pin-body{transition:transform .15s ease; transform-origin:center bottom; transform-box:fill-box}
 .pin:hover .pin-body{transform:scale(1.15)}

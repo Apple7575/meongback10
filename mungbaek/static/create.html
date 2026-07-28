@@ -81,12 +81,10 @@
       <span class="sec-label">마지막으로 본 위치를 지도에 찍어주세요 <span class="req">*</span></span>
       <div class="mini-map">
         <div id="miniMapContainer"></div>
-        <div class="mini-map-hint" id="miniHint">지도를 탭하면 유실 위치가 표시돼요</div>
+        <div class="mini-map-hint" id="miniHint">현재 위치를 불러오는 중… 지도를 탭하면 위치를 옮길 수 있어요</div>
       </div>
       <div class="quick-spots" id="quickSpots">
-        <button class="chip" type="button" data-spot="352,196,중계근린공원 입구">공원 입구</button>
-        <button class="chip" type="button" data-spot="222,150,중계동 주택가">주택가</button>
-        <button class="chip" type="button" data-spot="622,352,당현천 산책로">당현천</button>
+        <button class="chip" type="button" id="useLoc">📍 내 현재 위치로</button>
       </div>
     </div>
     <p class="form-err" id="formErr">이름과 유실 위치는 필수예요.</p>
@@ -102,6 +100,9 @@
 <script>
 const $=s=>document.querySelector(s);
 let picked=null, engine=null;
+/* 유실 위치(=지도 중심)의 실제 위경도. GPS가 잡히면 갱신, 안 잡히면 기본값(중계동) */
+let geoCenter={lat:37.6447, lng:127.0763};
+const CENTER={x:410, y:280};   /* 프레임 중심 = 지도 중심 */
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2600);}
 
 /* 기본 시각 = 지금 */
@@ -109,20 +110,29 @@ function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");cl
 
 function setLoc(x,y){
   picked={x,y}; engine&&engine.setMarker(x,y,null);
-  $("#miniHint").textContent="유실 위치가 표시됐어요 — 다시 탭하면 옮길 수 있어요";
+  $("#miniHint").textContent="유실 위치가 표시됐어요 — 지도를 다시 탭하면 옮길 수 있어요";
   $("#formErr").classList.remove("show");
 }
-MapEngine.create(document.getElementById("miniMapContainer"),
-  {mode:"pick", onPick:p=>setLoc(p.x,p.y)}, eng=>{engine=eng;});
 
-document.querySelectorAll("#quickSpots .chip").forEach(c=>{
-  c.addEventListener("click",()=>{
-    const [x,y,name]=c.dataset.spot.split(",");
-    setLoc(+x,+y);
-    if(!$("#lostPlace").value) $("#lostPlace").value=name;
-    document.querySelectorAll("#quickSpots .chip").forEach(o=>o.classList.toggle("on",o===c));
-  });
-});
+/* 현재 위치(GPS)를 지도 중심 + 유실 위치 기본값으로 */
+function useCurrentLocation(announce){
+  if(!navigator.geolocation){ if(announce) toast("이 브라우저는 위치를 지원하지 않아요"); return; }
+  if(announce) toast("현재 위치를 찾는 중…");
+  navigator.geolocation.getCurrentPosition(pos=>{
+    geoCenter={lat:pos.coords.latitude, lng:pos.coords.longitude};
+    MapEngine.setGeoCenter(geoCenter.lat, geoCenter.lng);
+    if(engine){ engine.setCenter(CENTER.x, CENTER.y); setLoc(CENTER.x, CENTER.y); }
+    if(announce) toast("현재 위치로 지정했어요 — 다르면 지도를 탭해 옮기세요");
+  }, ()=>{
+    if(announce) toast("위치 권한이 거부됐어요 — 지도를 탭해 위치를 찍어주세요");
+    else $("#miniHint").textContent="지도를 탭해서 유실 위치를 찍어주세요";
+  }, {enableHighAccuracy:true, timeout:8000, maximumAge:60000});
+}
+
+MapEngine.create(document.getElementById("miniMapContainer"),
+  {mode:"pick", onPick:p=>setLoc(p.x,p.y)}, eng=>{ engine=eng; useCurrentLocation(false); });
+
+$("#useLoc").addEventListener("click",()=>useCurrentLocation(true));
 
 $("#submit").addEventListener("click",async()=>{
   const dogName=$("#dogName").value.trim();
@@ -139,7 +149,8 @@ $("#submit").addEventListener("click",async()=>{
         weight:$("#weight").value.trim(), personality:$("#personality").value.trim(),
         health:$("#health").value.trim(), caution:$("#caution").value.trim(),
         lostAt:$("#lostAt").value.slice(0,16), lostPlace:$("#lostPlace").value.trim(),
-        lostX:picked.x, lostY:picked.y, resetReports:true,
+        lostX:picked.x, lostY:picked.y,
+        centerLat:geoCenter.lat, centerLng:geoCenter.lng, resetReports:true,
       })});
     if(!res.ok) throw new Error(await res.text());
     toast("공고가 등록됐어요! 공유 화면으로 이동합니다");

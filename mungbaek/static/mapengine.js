@@ -9,6 +9,15 @@
   const GEO = CFG.GEO || { centerLat: 37.6447, centerLng: 127.0763, latSpan: 0.00757, lngSpan: 0.01385 };
   const W = 820, H = 560;
 
+  /* 프레임(820x560) 중심의 실제 위경도. 공고마다 다를 수 있어 런타임에 바꿀 수 있게 함.
+     create() 호출 전에 setGeoCenter(lat,lng)로 지정하면 그 위치를 중심으로 지도가 뜬다. */
+  function setGeoCenter(lat, lng) {
+    lat = Number(lat); lng = Number(lng);
+    if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+      GEO.centerLat = lat; GEO.centerLng = lng;
+    }
+  }
+
   const STATUS_COLOR = {
     trusted: "var(--trust)", pending: "var(--pending)",
     important: "var(--important)", hidden: "var(--hidden)",
@@ -136,6 +145,7 @@
     return {
       backend: "svg",
       setPickable(on) { svg.style.cursor = on ? "crosshair" : ""; },
+      setCenter() {},   /* SVG 도식 지도는 중심 개념이 없음 (no-op) */
       setMarker(x, y, bearing) {
         const c = "var(--pending)";
         if (bearing === null || bearing === undefined) {
@@ -241,6 +251,10 @@
     return {
       backend: "kakao",
       setPickable() {},
+      setCenter(x, y) {
+        const p = xyToLatLng(x, y);
+        map.setCenter(new kakao.maps.LatLng(p.lat, p.lng));
+      },
       setMarker(x, y, bearing) {
         if (pickOverlay) pickOverlay.setMap(null);
         pickOverlay = overlay(x, y, { color: css("--pending"), chip: "목격", bearing: bearing ?? null }, 9);
@@ -318,7 +332,7 @@
 
   /* ══════════ 팩토리 ══════════ */
   window.MapEngine = {
-    xyToLatLng, latLngToXy, bearingToKo, bearingFromXY, captureHeading,
+    xyToLatLng, latLngToXy, bearingToKo, bearingFromXY, captureHeading, setGeoCenter,
     hasCompass: !!window.DeviceOrientationEvent,
     create(container, opts, ready) {
       if (CFG.KAKAO_MAP_KEY) {

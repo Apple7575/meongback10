@@ -35,6 +35,7 @@ SEED = {
         "lostAt": "2026-07-20T16:30",
         "lostPlace": "노원구 중계근린공원 입구",
         "lostX": 352, "lostY": 196,
+        "centerLat": 37.6447, "centerLng": 127.0763,   # 지도 프레임 중심의 실제 위경도(노원구 중계동)
         "status": "찾는 중",
     },
     "reports": [
@@ -201,6 +202,12 @@ class Handler(BaseHTTPRequestHandler):
         def s(key, default="", n=60):
             return (str(body.get(key) or "").strip() or default)[:n]
 
+        def geo(key, default):
+            try:
+                return float(body.get(key))
+            except (TypeError, ValueError):
+                return default
+
         name = s("dogName", n=20)
         slug = "dog-" + datetime.now().strftime("%m%d%H%M%S")
         notice = {
@@ -217,6 +224,8 @@ class Handler(BaseHTTPRequestHandler):
             "lostPlace": s("lostPlace", "지도에 찍은 위치", 80),
             "lostX": round(float(body["lostX"])),
             "lostY": round(float(body["lostY"])),
+            "centerLat": geo("centerLat", 37.6447),   # 유실 위치(현재 위치)의 실제 위경도 → 모든 지도 중심
+            "centerLng": geo("centerLng", 127.0763),
             "status": "찾는 중",
         }
         db = load_db()
