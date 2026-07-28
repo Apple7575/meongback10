@@ -292,34 +292,44 @@
     };
   }
 
-  /* ── 나침반(기기 방향) 캡처 ── */
-  function captureHeading() {
+  /* ── 나침반(기기 방향) ──
+   * watchHeading(cb): 폰을 돌릴 때마다 cb({heading, absolute})를 계속 호출한다.
+   *   지도앱처럼 방향 화살표를 실시간으로 돌리는 용도.
+   *   첫 측정값이 들어오면 "멈추는 함수"로 resolve → 센서가 실제로 되는지도 이때 판별된다.
+   */
+  function screenAngle() {
+    const a = (screen.orientation && screen.orientation.angle);
+    return typeof a === "number" ? a : (window.orientation || 0);
+  }
+
+  function watchHeading(onReading) {
     return new Promise((resolve, reject) => {
       if (!window.DeviceOrientationEvent) { reject(new Error("이 기기는 방향 센서를 지원하지 않아요")); return; }
       const start = () => {
-        let got = false;
+        let got = false, timer = null;
         const handler = (e) => {
-          const h = (e.webkitCompassHeading !== undefined && e.webkitCompassHeading !== null)
-            ? e.webkitCompassHeading
-            : (e.alpha !== null ? 360 - e.alpha : null);   // alpha는 반시계 → 나침반 방향으로 변환
-          if (h !== null && !isNaN(h)) {
-            got = true;
-            window.removeEventListener("deviceorientation", handler, true);
-            window.removeEventListener("deviceorientationabsolute", handler, true);
-            resolve(((Math.round(h) % 360) + 360) % 360);
+          let h = null, absolute = true;
+          if (e.webkitCompassHeading !== undefined && e.webkitCompassHeading !== null) {
+            h = e.webkitCompassHeading;                 // iOS — 이미 진북 기준
+          } else if (e.alpha !== null && e.alpha !== undefined) {
+            h = 360 - e.alpha;                          // alpha는 반시계 → 나침반 방향
+            absolute = e.absolute !== false;            // 절대 방위가 아니면 부정확할 수 있음
           }
+          if (h === null || isNaN(h)) return;
+          h = (((Math.round(h + screenAngle()) % 360) + 360) % 360);   // 가로모드 보정
+          if (!got) { got = true; clearTimeout(timer); resolve(stop); }
+          onReading({ heading: h, absolute });
+        };
+        const stop = () => {
+          clearTimeout(timer);
+          window.removeEventListener("deviceorientationabsolute", handler, true);
+          window.removeEventListener("deviceorientation", handler, true);
         };
         window.addEventListener("deviceorientationabsolute", handler, true);
         window.addEventListener("deviceorientation", handler, true);
-        setTimeout(() => {
-          if (!got) {
-            window.removeEventListener("deviceorientation", handler, true);
-            window.removeEventListener("deviceorientationabsolute", handler, true);
-            reject(new Error("방향을 읽지 못했어요"));
-          }
-        }, 2500);
+        timer = setTimeout(() => { if (!got) { stop(); reject(new Error("방향을 읽지 못했어요")); } }, 3000);
       };
-      // iOS 13+ 권한 요청
+      // iOS 13+ 권한 요청 (사용자 탭에서 호출되어야 함)
       if (typeof DeviceOrientationEvent.requestPermission === "function") {
         DeviceOrientationEvent.requestPermission()
           .then(p => p === "granted" ? start() : reject(new Error("방향 센서 권한이 필요해요")))
@@ -330,9 +340,16 @@
     });
   }
 
+  /* 한 번만 읽고 끝내는 버전 (호환용) */
+  function captureHeading() {
+    let first = null;
+    return watchHeading(r => { if (first === null) first = r.heading; })
+      .then(stop => { stop(); return first; });
+  }
+
   /* ══════════ 팩토리 ══════════ */
   window.MapEngine = {
-    xyToLatLng, latLngToXy, bearingToKo, bearingFromXY, captureHeading, setGeoCenter,
+    xyToLatLng, latLngToXy, bearingToKo, bearingFromXY, captureHeading, watchHeading, setGeoCenter,
     hasCompass: !!window.DeviceOrientationEvent,
     create(container, opts, ready) {
       if (CFG.KAKAO_MAP_KEY) {

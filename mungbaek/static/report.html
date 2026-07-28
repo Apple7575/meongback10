@@ -42,6 +42,33 @@
   .dir-result{font-size:12.5px; font-weight:700; color:var(--ink-soft);
     background:var(--surface-2); border-radius:10px; padding:9px 12px; text-align:center}
   .dir-result.set{color:var(--pending); background:var(--pending-bg)}
+  /* 실시간 나침반 */
+  .compass{display:flex; gap:14px; align-items:center;
+    border:1.5px solid var(--pending); background:var(--pending-bg);
+    border-radius:14px; padding:14px}
+  .cp-dial{width:104px; height:104px; flex:none}
+  .cp-dial svg{width:100%; height:100%; display:block}
+  .cp-n{font-size:15px; font-weight:800; fill:var(--important)}
+  .cp-c{font-size:12px; font-weight:700; fill:var(--ink-faint)}
+  #cpNeedle{transition:transform .12s linear}
+  .cp-info{flex:1; min-width:0; display:grid; gap:8px}
+  .cp-read{display:flex; align-items:baseline; gap:8px}
+  .cp-read b{font-size:20px; font-weight:800; color:var(--pending); letter-spacing:-.02em}
+  .cp-read span{font-size:13px; font-weight:700; color:var(--ink-faint); font-variant-numeric:tabular-nums}
+  .cp-help{margin:0; font-size:11.5px; color:var(--ink-soft); line-height:1.55}
+  .cp-help b{color:var(--navy)}
+  .cp-help.warn{color:var(--important)}
+  .cp-actions{display:grid; grid-template-columns:1.5fr 1fr; gap:7px}
+  .cp-ok{padding:11px 8px; border-radius:11px; font-size:13px; font-weight:800;
+    background:var(--pending); color:#fff}
+  .cp-cancel{padding:11px 8px; border-radius:11px; font-size:13px; font-weight:800;
+    border:1.5px solid var(--line); background:var(--surface); color:var(--ink-soft)}
+  @media (max-width:400px){
+    .compass{flex-direction:column; align-items:stretch}
+    .cp-dial{width:120px; height:120px; margin:0 auto}
+    .cp-read{justify-content:center}
+    .cp-help{text-align:center}
+  }
   .photo-drop{border:1.5px dashed var(--line); border-radius:12px; padding:14px;
     display:flex; align-items:center; gap:11px; cursor:pointer; background:var(--surface-2); font-size:13px; color:var(--ink-soft)}
   .photo-drop:hover{border-color:var(--navy)}
@@ -134,6 +161,36 @@
         <button class="dir-btn on" type="button" data-dir="none"><span class="ic">📍</span>방향 없이<br>핀만</button>
       </div>
       <div class="dir-result" id="dirResult">방향 없이 핀으로 등록돼요</div>
+
+      <!-- 실시간 나침반 — 폰을 돌리면 바늘과 지도 화살표가 같이 돈다 -->
+      <div class="compass" id="compass" hidden>
+        <div class="cp-dial">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle cx="60" cy="60" r="54" fill="var(--surface-2)" stroke="var(--line)" stroke-width="2"/>
+            <g stroke="var(--line)" stroke-width="1.5" stroke-linecap="round">
+              <path d="M60 10 V18"/><path d="M110 60 H102"/><path d="M60 110 V102"/><path d="M10 60 H18"/>
+              <path d="M95.4 24.6 l-5.6 5.6"/><path d="M95.4 95.4 l-5.6-5.6"/>
+              <path d="M24.6 95.4 l5.6-5.6"/><path d="M24.6 24.6 l5.6 5.6"/>
+            </g>
+            <text x="60" y="32" text-anchor="middle" class="cp-n">N</text>
+            <text x="90" y="65" text-anchor="middle" class="cp-c">E</text>
+            <text x="60" y="96" text-anchor="middle" class="cp-c">S</text>
+            <text x="30" y="65" text-anchor="middle" class="cp-c">W</text>
+            <g id="cpNeedle" style="transform-origin:60px 60px">
+              <path d="M60 26 L69 62 L60 57 L51 62 Z" fill="var(--pending)"/>
+              <circle cx="60" cy="60" r="5.5" fill="var(--pending)" stroke="var(--surface)" stroke-width="2"/>
+            </g>
+          </svg>
+        </div>
+        <div class="cp-info">
+          <div class="cp-read"><b id="cpDir">—</b><span id="cpDeg"></span></div>
+          <p class="cp-help" id="cpHelp">강아지가 간 쪽으로 <b>폰 윗부분을 향하게</b> 들고<br>아래 버튼을 눌러주세요</p>
+          <div class="cp-actions">
+            <button class="cp-ok" type="button" id="cpConfirm">이 방향으로 정하기</button>
+            <button class="cp-cancel" type="button" id="cpCancel">취소</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="field">
@@ -274,6 +331,59 @@ $("#useLoc").addEventListener("click",()=>{
   {enableHighAccuracy:true, timeout:8000, maximumAge:60000});
 });
 
+/* ── 실시간 나침반 ──
+   폰을 돌리면 바늘과 지도 위 화살표가 함께 돌고, 버튼을 눌러 그 방향으로 확정한다. */
+let stopCompass=null, liveBearing=null;
+
+function setNeedle(deg){
+  document.getElementById("cpNeedle").style.transform=`rotate(${deg}deg)`;
+  $("#cpDir").textContent=(MapEngine.bearingToKo(deg)||"").replace("으로 이동","").replace("로 이동","");
+  $("#cpDeg").textContent=deg+"°";
+}
+
+async function startCompass(){
+  closeCompass();                       // 중복 실행 방지
+  $("#compass").hidden=false;
+  $("#dirResult").textContent="폰을 돌려보세요 — 바늘이 실시간으로 움직여요";
+  $("#cpHelp").className="cp-help";
+  $("#cpHelp").innerHTML="강아지가 간 쪽으로 <b>폰 윗부분을 향하게</b> 들고<br>아래 버튼을 눌러주세요";
+  try{
+    stopCompass=await MapEngine.watchHeading(({heading, absolute})=>{
+      liveBearing=heading;
+      setNeedle(heading);
+      if(picked && engine) engine.setMarker(picked.x, picked.y, heading);   // 지도 화살표도 실시간
+      if(!absolute){
+        $("#cpHelp").className="cp-help warn";
+        $("#cpHelp").innerHTML="이 기기는 <b>정확한 방위</b>를 못 읽어요.<br>어긋나면 ‘지도에서 방향 찍기’를 써주세요";
+      }
+    });
+  }catch(e){
+    closeCompass();
+    selDirBtn("map"); bearing=null; dirPicking=true;
+    $("#dirResult").textContent=e.message+" — 대신 지도에서 방향을 탭해주세요";
+    document.querySelector(".mini-map").scrollIntoView({behavior:"smooth",block:"center"});
+  }
+}
+
+function closeCompass(){
+  if(stopCompass){ stopCompass(); stopCompass=null; }
+  $("#compass").hidden=true;
+}
+
+$("#cpConfirm").addEventListener("click",()=>{
+  if(liveBearing===null){ toast("아직 방향을 읽지 못했어요"); return; }
+  bearing=liveBearing;
+  closeCompass();
+  dirPicking=false; renderMarker(); updateDirResult();
+  toast("지금 향한 방향으로 정했어요");
+});
+$("#cpCancel").addEventListener("click",()=>{
+  closeCompass();
+  selDirBtn("none"); bearing=null; renderMarker(); updateDirResult();
+});
+/* 다른 화면으로 가거나 탭이 가려지면 센서를 꺼서 배터리를 아낀다 */
+document.addEventListener("visibilitychange",()=>{ if(document.hidden) closeCompass(); });
+
 /* 방향 선택 버튼 */
 function selDirBtn(mode){
   dirMode=mode;
@@ -282,6 +392,7 @@ function selDirBtn(mode){
 document.querySelectorAll(".dir-btn").forEach(b=>{
   b.addEventListener("click",async()=>{
     const mode=b.dataset.dir;
+    if(mode!=="compass") closeCompass();
     if(mode==="none"){
       selDirBtn("none"); bearing=null; dirPicking=false; renderMarker(); updateDirResult();
       $("#miniHint").textContent="목격 위치가 표시됐어요 — 다시 탭하면 옮길 수 있어요";
@@ -293,17 +404,8 @@ document.querySelectorAll(".dir-btn").forEach(b=>{
       document.querySelector(".mini-map").scrollIntoView({behavior:"smooth",block:"center"});
     }else if(mode==="compass"){
       selDirBtn("compass");
-      if(!picked){ toast("먼저 지도에서 목격 위치를 탭해주세요"); return; }
-      $("#dirResult").textContent="방향 센서를 읽는 중… 강아지가 간 쪽을 향해 폰을 들어주세요";
-      try{
-        bearing=await MapEngine.captureHeading();
-        dirPicking=false; renderMarker(); updateDirResult();
-        toast("지금 바라보는 방향으로 등록됐어요");
-      }catch(e){
-        selDirBtn("map"); bearing=null;
-        $("#dirResult").textContent=e.message+" — 대신 지도에서 방향을 탭해주세요";
-        dirPicking=true;
-      }
+      if(!picked){ selDirBtn(dirMode==="compass"?"none":dirMode); toast("먼저 지도에서 목격 위치를 탭해주세요"); return; }
+      startCompass();
     }
   });
 });
@@ -333,6 +435,7 @@ $("#wPhoto").addEventListener("change",e=>{
 $("#wSubmit").addEventListener("click",async()=>{
   if(!picked){ $("#formErr").classList.add("show");
     document.querySelector(".mini-map").scrollIntoView({behavior:"smooth",block:"center"}); return; }
+  closeCompass();
   const btn=$("#wSubmit"); btn.disabled=true; btn.textContent="보내는 중…";
   try{
     const res=await fetch("/api/reports",{method:"POST",headers:{"Content-Type":"application/json"},
@@ -357,6 +460,7 @@ $("#wSubmit").addEventListener("click",async()=>{
 
 /* 초기화 */
 $("#newReport").addEventListener("click",()=>{
+  closeCompass(); liveBearing=null;
   picked=null; bearing=null; dirMode="none"; dirPicking=false; photoData=null; thumbData=null;
   engine&&engine.clearMarker();
   selDirBtn("none"); updateDirResult();
