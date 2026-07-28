@@ -128,6 +128,22 @@
         </a>
       </div>
     </div>
+    <!-- 보호자 전용 — 절대 공유하면 안 되는 링크 -->
+    <div class="card owner-card" id="ownerCard">
+      <h3>🔑 내 관리 링크 <span class="only-me">나만 보관</span></h3>
+      <p class="sub">이 링크로 들어가야 제보를 확인하고 신뢰·숨김을 정할 수 있어요.
+        <b>목격자에게는 위의 제보 링크를 보내주세요.</b></p>
+      <div class="owner-url" id="manageUrl"></div>
+      <div class="owner-actions">
+        <button class="navy-btn" type="button" id="copyManage">관리 링크 복사</button>
+        <a class="ghost-btn" id="goManage" href="/">관리 화면 열기</a>
+      </div>
+      <p class="owner-tip">
+        휴대폰을 바꾸거나 링크를 잃어버렸다면 <b>공고 주소 + PIN 4자리</b>로 다시 찾을 수 있어요.
+        <a href="/find">내 공고 찾기 →</a>
+      </p>
+    </div>
+
     <div class="card tip-card">
       <h4>공유 팁</h4>
       <ul>
@@ -141,6 +157,23 @@
 
 <div class="toast" id="toast" role="status"></div>
 
+<style>
+  .owner-card{padding:16px; display:grid; gap:9px; border-left:4px solid var(--important)}
+  .owner-card h3{margin:0; font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px}
+  .only-me{font-size:10.5px; font-weight:800; color:var(--important);
+    background:var(--important-bg); border-radius:99px; padding:3px 9px}
+  .owner-card .sub{margin:0; font-size:12.5px; color:var(--ink-soft); line-height:1.55}
+  .owner-card .sub b{color:var(--navy)}
+  .owner-url{font-size:12px; font-weight:700; word-break:break-all; line-height:1.5;
+    background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:10px 12px}
+  .owner-actions{display:flex; gap:8px; flex-wrap:wrap}
+  .owner-actions .navy-btn,.owner-actions .ghost-btn{flex:1; min-width:130px; justify-content:center}
+  .owner-tip{margin:0; font-size:11.5px; color:var(--ink-faint); line-height:1.6}
+  .owner-tip b{color:var(--ink-soft)}
+  .owner-tip a{color:var(--navy); font-weight:800; text-decoration:none; white-space:nowrap}
+</style>
+
+<script src="/session.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 function toast(msg){
@@ -148,11 +181,29 @@ function toast(msg){
   clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2400);
 }
 
-let reportUrl = location.origin + "/r/kong-i";
+/* 어떤 공고를 보여줄지: ?slug= → 저장된 내 공고 → 데모 */
+const saved = MB.read();
+const askedSlug = new URLSearchParams(location.search).get("slug");
+const slug = askedSlug || (saved && saved.slug) || "demo";
+let reportUrl = MB.reportUrl(slug);
 
-fetch("/api/notice").then(r=>r.json()).then(n=>{
-  reportUrl = location.origin + "/r/" + (n.slug||"kong-i");
-  $("#previewLink").href = "/r/" + (n.slug||"kong-i");
+/* 내 관리 링크 — 내 공고일 때만 보여준다 */
+(function(){
+  const mine = saved && saved.slug === slug ? saved : null;
+  if(!mine){ $("#ownerCard").style.display="none"; return; }
+  const mUrl = MB.manageUrl(mine.ownerKey);
+  $("#manageUrl").textContent = mUrl.replace(/^https?:\/\//,"");
+  $("#goManage").href = "/m/" + encodeURIComponent(mine.ownerKey);
+  $("#copyManage").addEventListener("click", async ()=>{
+    toast(await MB.copy(mUrl) ? "관리 링크가 복사됐어요 — 나에게만 보관하세요" : mUrl);
+  });
+})();
+
+fetch("/api/notice?slug="+encodeURIComponent(slug)).then(r=>{
+  if(!r.ok) throw new Error("not found"); return r.json();
+}).then(n=>{
+  reportUrl = MB.reportUrl(n.slug);
+  $("#previewLink").href = "/r/" + n.slug;
   $("#posterTitle").textContent=`${n.dogName}를 봤다면 알려주세요`;
   const lostT=n.lostAt.slice(11,16);
   $("#posterRows").innerHTML=`
@@ -170,14 +221,13 @@ fetch("/api/notice").then(r=>r.json()).then(n=>{
     .then(svg=>{ $("#qrBox").innerHTML=svg; })
     .catch(()=>{ $("#qrBox").innerHTML=
       '<div style="font-size:10px;color:#888;text-align:center;padding-top:30px">QR 생성 불가<br>qrcode 설치 필요</div>'; });
-}).catch(()=>toast("서버에 연결할 수 없어요 — py server.py 로 서버를 켜주세요"));
+}).catch(()=>toast("공고를 불러오지 못했어요 — 주소를 확인해주세요"));
 
 document.querySelectorAll("button.share-item").forEach(b=>{
   b.addEventListener("click",async()=>{
     const k=b.dataset.share;
     if(k==="link"){
-      try{ await navigator.clipboard.writeText(reportUrl); toast("제보 링크가 복사됐어요"); }
-      catch(e){ toast(reportUrl); }
+      toast(await MB.copy(reportUrl) ? "제보 링크가 복사됐어요 — 목격자에게 보내세요" : reportUrl);
       return;
     }
     const msgs={

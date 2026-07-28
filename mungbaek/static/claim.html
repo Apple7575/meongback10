@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>멍백홈 · 내 공고 찾기</title>
+<link rel="stylesheet" href="/common.css">
+<style>
+  .wrap{max-width:440px; margin:0 auto; padding:20px 18px 48px; display:grid; gap:14px}
+  .c-card{padding:20px; display:grid; gap:14px}
+  .c-card h2{margin:0; font-size:18px; font-weight:800; letter-spacing:-.02em}
+  .lead{margin:0; font-size:13px; color:var(--ink-soft); line-height:1.65}
+  .lead b{color:var(--navy)}
+  .field{display:grid; gap:6px}
+  .field label{font-size:12.5px; font-weight:800; color:var(--ink-soft)}
+  .field input{width:100%; border:1.5px solid var(--line); border-radius:11px;
+    background:var(--surface); padding:12px 13px; font-size:15px}
+  .field .hint{font-size:11.5px; color:var(--ink-faint); line-height:1.5}
+  #pin{letter-spacing:.5em; font-weight:800; text-align:center; font-size:20px}
+  .submit-btn{width:100%; padding:15px; border-radius:13px;
+    background:var(--navy); color:var(--on-navy); font-size:15.5px; font-weight:800}
+  .submit-btn[disabled]{opacity:.6; cursor:progress}
+  .msg{margin:0; font-size:12.5px; font-weight:700; display:none; line-height:1.6}
+  .msg.show{display:block}
+  .msg.err{color:var(--important)}
+  .msg.ok{color:var(--trust)}
+  .alt{text-align:center; font-size:12.5px; color:var(--ink-faint)}
+  .alt a{color:var(--navy); font-weight:800; text-decoration:none}
+</style>
+</head>
+<body>
+
+<header class="mb">
+  <a class="logo" href="/">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 21c-3.5 0-6-2-6-4.6 0-2.9 2.8-5.9 6-5.9s6 3 6 5.9c0 2.6-2.5 4.6-6 4.6Z" fill="var(--navy)"/>
+      <circle cx="6.2" cy="8.6" r="2.1" fill="var(--navy)"/><circle cx="17.8" cy="8.6" r="2.1" fill="var(--navy)"/>
+      <circle cx="9.4" cy="4.9" r="2" fill="var(--navy)"/><circle cx="14.6" cy="4.9" r="2" fill="var(--navy)"/>
+    </svg>
+    멍백홈
+  </a>
+  <div class="page-name"><b>내 공고 찾기</b> · 관리 링크를 잃어버렸을 때</div>
+</header>
+
+<div class="wrap">
+  <div class="card c-card">
+    <h2>내 공고 다시 찾기</h2>
+    <p class="lead">
+      멍백홈은 회원가입이 없어요. 공고를 만들 때 정한 <b>PIN 4자리</b>와
+      <b>제보 링크 주소</b>만 있으면 관리 권한을 다시 받을 수 있어요.
+    </p>
+
+    <div class="field">
+      <label for="slug">제보 링크 또는 공고 주소</label>
+      <input type="text" id="slug" placeholder="예: dog-a1b2c3" autocomplete="off">
+      <div class="hint">목격자에게 보낸 링크(…/r/<b>dog-a1b2c3</b>)의 마지막 부분이에요. 링크 전체를 붙여넣어도 돼요.</div>
+    </div>
+
+    <div class="field">
+      <label for="pin">PIN 숫자 4자리</label>
+      <input type="text" id="pin" inputmode="numeric" maxlength="4" placeholder="4자리" autocomplete="off">
+    </div>
+
+    <p class="msg" id="msg"></p>
+    <button class="submit-btn" id="submit" type="button">내 공고 찾기</button>
+    <p class="alt">공고를 아직 안 만드셨나요? <a href="/new">공고 등록하기 →</a></p>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="/session.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2600);}
+function say(text, kind){ const m=$("#msg"); m.textContent=text; m.className="msg show "+kind; }
+
+$("#pin").addEventListener("input",e=>{ e.target.value=e.target.value.replace(/\D/g,"").slice(0,4); });
+
+/* 링크 전체를 붙여넣어도 공고 id만 뽑아낸다 */
+function normalizeSlug(v){
+  v=v.trim();
+  const m=v.match(/\/(?:r|share)\/([^/?#\s]+)/) || v.match(/[?&]slug=([^&\s]+)/);
+  if(m) return decodeURIComponent(m[1]);
+  return v.replace(/^https?:\/\/[^/]+\/?/,"").replace(/[/?#].*$/,"");
+}
+
+$("#submit").addEventListener("click",async()=>{
+  const slug=normalizeSlug($("#slug").value);
+  const pin=$("#pin").value.trim();
+  if(!slug || !/^\d{4}$/.test(pin)){
+    say(!slug ? "제보 링크 또는 공고 주소를 입력해주세요." : "PIN을 숫자 4자리로 입력해주세요.","err");
+    return;
+  }
+  const btn=$("#submit"); btn.disabled=true; btn.textContent="확인 중…";
+  try{
+    const res=await fetch("/api/auth",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({slug,pin})});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error||"확인에 실패했어요");
+    MB.save(slug, data.ownerKey, data.notice && data.notice.dogName);
+    say(`${(data.notice&&data.notice.dogName)||""} 공고를 찾았어요! 관리 화면으로 이동합니다.`,"ok");
+    setTimeout(()=>location.href="/m/"+encodeURIComponent(data.ownerKey), 800);
+  }catch(err){
+    say(err.message||"확인에 실패했어요","err");
+    btn.disabled=false; btn.textContent="내 공고 찾기";
+  }
+});
+$("#pin").addEventListener("keydown",e=>{ if(e.key==="Enter") $("#submit").click(); });
+</script>
+</body>
+</html>

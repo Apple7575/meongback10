@@ -171,14 +171,14 @@
     <h3>제보가 전달됐어요</h3>
     <p id="doneMsg">보호자에게 방금 알림이 갔어요.<br>덕분에 집에 갈 확률이 높아졌습니다. 감사합니다!</p>
     <div class="done-actions">
-      <a class="navy-btn full" href="/">보호자 지도에서 내 제보 보기</a>
-      <button class="ghost-btn full" id="newReport" type="button">추가로 제보하기</button>
+      <button class="navy-btn full" id="newReport" type="button">추가로 제보하기</button>
     </div>
   </div>
 </div>
 
 <div class="toast" id="toast" role="status"></div>
 
+<script src="/session.js"></script>
 <script src="/config.js"></script>
 <script src="/mapengine.js"></script>
 <script>
@@ -200,8 +200,11 @@ function toast(msg){
 /* 나침반 없는 기기(데스크톱)면 나침반 버튼 숨김 */
 if(!MapEngine.hasCompass) $("#compassBtn").style.display="none";
 
-/* 공고 → 지도 중심을 공고 위치로 맞춘 뒤 지도 생성 */
-fetch("/api/notice").then(r=>r.json()).then(n=>{
+/* 주소(/r/<공고id>)의 공고를 불러온다 — 지도 중심도 그 공고 위치로 */
+const slug = MB.slugFromPath() || "demo";
+fetch("/api/notice?slug="+encodeURIComponent(slug)).then(r=>{
+  if(!r.ok) throw new Error("not found"); return r.json();
+}).then(n=>{
   notice=n;
   $("#wTitle").textContent=`${n.dogName}를 목격하셨나요?`;
   $("#wDogName").innerHTML=`${n.dogName} <span class="badge b-important">${n.status}</span>`;
@@ -211,7 +214,12 @@ fetch("/api/notice").then(r=>r.json()).then(n=>{
   MapEngine.setGeoCenter(n.centerLat, n.centerLng);
   MapEngine.create(document.getElementById("miniMapContainer"),
     {mode:"pick", onPick:onTap}, eng=>{ engine=eng; });
-}).catch(()=>toast("서버에 연결할 수 없어요"));
+}).catch(()=>{
+  $("#wTitle").textContent="공고를 찾을 수 없어요";
+  $("#witnessForm").innerHTML=
+    '<p style="text-align:center;color:var(--ink-soft);font-size:13.5px;line-height:1.7;padding:20px">'+
+    '받으신 제보 링크가 만료됐거나 주소가 잘못된 것 같아요.<br>보호자에게 링크를 다시 요청해주세요.</p>';
+});
 
 /* 마커 다시 그리기 */
 function renderMarker(){
@@ -325,6 +333,7 @@ $("#wSubmit").addEventListener("click",async()=>{
   try{
     const res=await fetch("/api/reports",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
+        slug,
         seenAt:$("#wTime").value||"12:00",
         x:picked.x, y:picked.y, bearing,
         place:$("#wPlace").value.trim(),

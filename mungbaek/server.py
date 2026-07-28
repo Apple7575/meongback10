@@ -1,9 +1,19 @@
-# 멍백홈 로컬 서버 — Python 표준 라이브러리만 사용 (추가 설치 불필요, qrcode는 선택)
+# 멍백홈 서버 — Python 표준 라이브러리만 사용 (추가 설치 불필요, qrcode는 선택)
 # 실행:  py server.py   →  http://localhost:8000
+#
+# 권한 모델 (로그인 없음)
+#   · 공고마다 공개 slug 와 비밀 ownerKey 를 발급한다.
+#   · 목격자: /r/<slug> 에서 아무 인증 없이 제보 (진입장벽 0)
+#   · 보호자: /m/<ownerKey> 로 관리. 제보 상태 변경·공고 수정에는 X-Owner-Key 헤더가 필요.
+#   · 링크를 잃어버리면 slug + PIN(4자리)으로 ownerKey를 다시 받는다. (시도 횟수 제한)
+import hashlib
+import hmac
+import io
 import json
 import os
+import re
+import secrets
 import threading
-import io
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -12,8 +22,12 @@ from urllib.parse import urlparse, parse_qs
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 DB_PATH = ROOT / "data.json"
-LOCK = threading.Lock()
+LOCK = threading.RLock()
 PORT = int(os.environ.get("PORT", 8000))  # 배포 플랫폼(Render 등)이 PORT를 지정함
+
+PIN_ITERATIONS = 120_000
+PIN_MAX_FAILS = 5          # 이 횟수를 넘기면
+PIN_LOCK_SECONDS = 600     # 10분간 잠금
 
 try:
     import qrcode
@@ -22,43 +36,10 @@ try:
 except ImportError:
     HAS_QR = False
 
-SEED = {
-    "notice": {
-        "slug": "kong-i",
-        "dogName": "콩이",
-        "breed": "말티즈 (흰색)",
-        "age": "7살",
-        "weight": "4.2kg",
-        "personality": "겁이 많음",
-        "health": "심장약 복용 중",
-        "caution": "콩이는 겁이 많아 쫓아가면 더 도망갈 수 있습니다. 잡으려 하지 말고 위치와 사진만 제보해주세요.",
-        "lostAt": "2026-07-20T16:30",
-        "lostPlace": "노원구 중계근린공원 입구",
-        "lostX": 352, "lostY": 196,
-        "centerLat": 37.6447, "centerLng": 127.0763,   # 지도 프레임 중심의 실제 위경도(노원구 중계동)
-        "status": "찾는 중",
-    },
-    "reports": [
-        {"id": 1, "seenAt": "17:10", "receivedAt": "17:24", "place": "GS25 중계점 편의점 앞",
-         "dir": "남동쪽으로 이동", "bearing": 125, "status": "trusted", "source": "witness", "contact": True,
-         "memo": "흰색 말티즈가 편의점 앞을 지나 공원 쪽으로 뛰어갔어요. 목줄은 없었고 많이 불안해 보였습니다.",
-         "x": 222, "y": 150, "scene": "street", "photo": None},
-        {"id": 2, "seenAt": "17:35", "receivedAt": "17:41", "place": "중계근린공원 입구",
-         "dir": "방향 확인 안 됨", "bearing": None, "status": "pending", "source": "witness", "contact": False,
-         "memo": "공원 입구 벤치 근처에서 작은 흰 강아지를 봤어요. 사람이 다가가니 하천 쪽으로 갔습니다.",
-         "x": 398, "y": 238, "scene": "park", "photo": None},
-        {"id": 3, "seenAt": "17:50", "receivedAt": "18:20", "place": "중계아파트 3단지 놀이터",
-         "dir": "방향 확인 안 됨", "bearing": None, "status": "hidden", "source": "witness", "contact": False,
-         "memo": "놀이터에서 흰 강아지를 봤다는 제보. 확인 결과 이웃집 강아지로 밝혀져 숨김 처리했습니다.",
-         "x": 236, "y": 382, "scene": "playground", "photo": None},
-        {"id": 4, "seenAt": "18:05", "receivedAt": "18:12", "place": "당현천 산책로",
-         "dir": "남쪽으로 이동", "bearing": 180, "status": "trusted", "source": "witness", "contact": True,
-         "memo": "산책 중에 흰색 말티즈가 산책로를 따라 남쪽으로 내려가는 걸 봤어요. 사진 찍어뒀습니다.",
-         "x": 622, "y": 352, "scene": "river", "photo": None},
-    ],
-}
-
 VALID_STATUS = {"trusted", "pending", "hidden", "important"}
+
+# 공개 API로 내보내면 안 되는 필드
+SECRET_FIELDS = {"ownerKey", "pinSalt", "pinHash", "pinFails", "pinLockedUntil", "reports"}
 
 MIME = {
     ".html": "text/html; charset=utf-8",
@@ -75,14 +56,109 @@ PAGES = {
     "/": "owner.html",
     "/share": "share.html",
     "/new": "create.html",
+    "/find": "claim.html",
 }
+
+DEMO_SLUG = "demo"
+DEMO_OWNER_KEY = "demo-owner-key"   # 데모 공고는 누구나 둘러볼 수 있게 고정 키 사용
+
+
+def demo_notice():
+    """시연용 기본 공고 — 실제 공고는 /new 에서 만든다."""
+    return {
+        "slug": DEMO_SLUG,
+        "isDemo": True,
+        "dogName": "콩이",
+        "breed": "말티즈 (흰색)",
+        "age": "7살",
+        "weight": "4.2kg",
+        "personality": "겁이 많음",
+        "health": "심장약 복용 중",
+        "caution": "콩이는 겁이 많아 쫓아가면 더 도망갈 수 있습니다. 잡으려 하지 말고 위치와 사진만 제보해주세요.",
+        "lostAt": "2026-07-20T16:30",
+        "lostPlace": "노원구 중계근린공원 입구",
+        "lostX": 352, "lostY": 196,
+        "centerLat": 37.6447, "centerLng": 127.0763,
+        "status": "찾는 중",
+        "createdAt": "2026-07-20T16:30",
+        "ownerKey": DEMO_OWNER_KEY,
+        "pinSalt": "", "pinHash": "",      # 데모는 PIN 없음
+        "reports": [
+            {"id": 1, "seenAt": "17:10", "receivedAt": "17:24", "place": "GS25 중계점 편의점 앞",
+             "dir": "남동쪽으로 이동", "bearing": 125, "status": "trusted", "source": "witness", "contact": True,
+             "memo": "흰색 말티즈가 편의점 앞을 지나 공원 쪽으로 뛰어갔어요. 목줄은 없었고 많이 불안해 보였습니다.",
+             "x": 222, "y": 150, "scene": "street", "photo": None},
+            {"id": 2, "seenAt": "17:35", "receivedAt": "17:41", "place": "중계근린공원 입구",
+             "dir": "방향 확인 안 됨", "bearing": None, "status": "pending", "source": "witness", "contact": False,
+             "memo": "공원 입구 벤치 근처에서 작은 흰 강아지를 봤어요. 사람이 다가가니 하천 쪽으로 갔습니다.",
+             "x": 398, "y": 238, "scene": "park", "photo": None},
+            {"id": 3, "seenAt": "17:50", "receivedAt": "18:20", "place": "중계아파트 3단지 놀이터",
+             "dir": "방향 확인 안 됨", "bearing": None, "status": "hidden", "source": "witness", "contact": False,
+             "memo": "놀이터에서 흰 강아지를 봤다는 제보. 확인 결과 이웃집 강아지로 밝혀져 숨김 처리했습니다.",
+             "x": 236, "y": 382, "scene": "playground", "photo": None},
+            {"id": 4, "seenAt": "18:05", "receivedAt": "18:12", "place": "당현천 산책로",
+             "dir": "남쪽으로 이동", "bearing": 180, "status": "trusted", "source": "witness", "contact": True,
+             "memo": "산책 중에 흰색 말티즈가 산책로를 따라 남쪽으로 내려가는 걸 봤어요. 사진 찍어뒀습니다.",
+             "x": 622, "y": 352, "scene": "river", "photo": None},
+        ],
+    }
+
+
+# ── PIN ────────────────────────────────────────
+def hash_pin(pin: str, salt: str) -> str:
+    return hashlib.pbkdf2_hmac("sha256", pin.encode("utf-8"),
+                               salt.encode("utf-8"), PIN_ITERATIONS).hex()
+
+
+def now_ts() -> float:
+    return datetime.now().timestamp()
+
+
+# ── DB ─────────────────────────────────────────
+def _blank_db():
+    return {"notices": {DEMO_SLUG: demo_notice()}}
+
+
+def _migrate(db):
+    """예전 형식({notice, reports})을 공고 여러 개 구조로 옮긴다."""
+    if "notices" in db:
+        return db, False
+    old = db.get("notice")
+    notices = {DEMO_SLUG: demo_notice()}
+    if old:
+        slug = old.get("slug") or DEMO_SLUG
+        if slug == DEMO_SLUG:                       # 데모 자리를 차지하지 않도록
+            slug = "dog-" + secrets.token_hex(3)
+        old = dict(old)
+        old["slug"] = slug
+        old.setdefault("centerLat", 37.6447)
+        old.setdefault("centerLng", 127.0763)
+        old["createdAt"] = datetime.now().strftime("%Y-%m-%dT%H:%M")
+        old["ownerKey"] = secrets.token_urlsafe(18)
+        old["pinSalt"] = ""
+        old["pinHash"] = ""
+        old["reports"] = db.get("reports", [])
+        notices[slug] = old
+    return {"notices": notices}, True
 
 
 def load_db():
     with LOCK:
         if not DB_PATH.exists():
-            DB_PATH.write_text(json.dumps(SEED, ensure_ascii=False, indent=2), encoding="utf-8")
-        return json.loads(DB_PATH.read_text(encoding="utf-8"))
+            db = _blank_db()
+            DB_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
+            return db
+        try:
+            db = json.loads(DB_PATH.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            db = _blank_db()
+        db, changed = _migrate(db)
+        if DEMO_SLUG not in db["notices"]:
+            db["notices"][DEMO_SLUG] = demo_notice()
+            changed = True
+        if changed:
+            DB_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
+        return db
 
 
 def save_db(db):
@@ -90,8 +166,16 @@ def save_db(db):
         DB_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def public_notice(n):
+    """비밀 필드를 뺀 공개용 공고 정보."""
+    out = {k: v for k, v in n.items() if k not in SECRET_FIELDS}
+    out["hasPin"] = bool(n.get("pinHash"))
+    out["reportCount"] = len(n.get("reports", []))
+    return out
+
+
 class Handler(BaseHTTPRequestHandler):
-    server_version = "MungbaekHome/0.2"
+    server_version = "MungbaekHome/0.3"
 
     # ── 응답 헬퍼 ──────────────────────────────
     def _send(self, code, body: bytes, ctype: str):
@@ -99,6 +183,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        # 관리 링크(비밀 URL)가 새어나가지 않도록
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Robots-Tag", "noindex, nofollow")
         self.end_headers()
         self.wfile.write(body)
 
@@ -124,21 +211,58 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"error": "invalid json"}, 400)
             return None
 
+    # ── 공고 조회 헬퍼 ─────────────────────────
+    def _query(self):
+        return parse_qs(urlparse(self.path).query)
+
+    def _find_notice(self, db):
+        """?slug= 또는 ?key= 로 공고를 찾는다. 없으면 (None, 오류응답함)."""
+        q = self._query()
+        key = (q.get("key") or [""])[0]
+        slug = (q.get("slug") or [""])[0]
+        if key:
+            for n in db["notices"].values():
+                if hmac.compare_digest(n.get("ownerKey", ""), key):
+                    return n
+            return None
+        if slug:
+            return db["notices"].get(slug)
+        return None
+
+    def _owner_ok(self, notice):
+        """이 요청이 해당 공고의 보호자인지."""
+        sent = self.headers.get("X-Owner-Key", "")
+        return bool(sent) and hmac.compare_digest(notice.get("ownerKey", ""), sent)
+
     # ── 라우팅 ────────────────────────────────
     def do_GET(self):
-        url = urlparse(self.path)
-        path = url.path
+        path = urlparse(self.path).path
 
         if path == "/api/notice":
-            self._json(load_db()["notice"])
+            db = load_db()
+            n = self._find_notice(db)
+            if not n:
+                self._json({"error": "공고를 찾을 수 없어요"}, 404)
+                return
+            out = public_notice(n)
+            if self._owner_ok(n):
+                out["isOwner"] = True
+            self._json(out)
         elif path == "/api/reports":
-            self._json(load_db()["reports"])
+            db = load_db()
+            n = self._find_notice(db)
+            if not n:
+                self._json({"error": "공고를 찾을 수 없어요"}, 404)
+                return
+            self._json(n.get("reports", []))
         elif path == "/api/qr":
-            self._qr(parse_qs(url.query).get("data", [""])[0])
+            self._qr((self._query().get("data") or [""])[0])
         elif path in PAGES:
             self._file(PAGES[path])
-        elif path.startswith("/r/"):          # 목격자 제보 단축 링크
+        elif path.startswith("/r/"):          # 목격자 제보 링크
             self._file("report.html")
+        elif path.startswith("/m/"):          # 보호자 관리 링크(비밀)
+            self._file("owner.html")
         else:
             self._file(path.lstrip("/"))
 
@@ -148,28 +272,41 @@ class Handler(BaseHTTPRequestHandler):
             self._create_report()
         elif path == "/api/notice":
             self._create_notice()
+        elif path == "/api/auth":
+            self._auth_pin()
         else:
             self._json({"error": "not found"}, 404)
 
+    # ── 제보 등록 (누구나) ─────────────────────
     def _create_report(self):
         body = self._body()
         if body is None:
+            return
+        db = load_db()
+        notice = db["notices"].get(str(body.get("slug") or ""))
+        if not notice:
+            notice = self._find_notice(db)
+        if not notice:
+            self._json({"error": "공고를 찾을 수 없어요"}, 404)
             return
         if not body.get("seenAt") or body.get("x") is None or body.get("y") is None:
             self._json({"error": "seenAt, x, y는 필수입니다"}, 400)
             return
         # 방향(나침반/지도) — 0~360도, 북=0 시계방향. 없으면 핀만 표시
-        bearing = body.get("bearing")
         try:
-            bearing = round(float(bearing)) % 360
+            bearing = round(float(body.get("bearing"))) % 360
         except (TypeError, ValueError):
             bearing = None
-        # 보호자가 직접 등록한 제보는 status를 지정할 수 있음(외부로 받은 신뢰 제보 등)
-        status = body.get("status") if body.get("status") in VALID_STATUS else "pending"
-        source = "owner" if body.get("source") == "owner" else "witness"
-        db = load_db()
+        # 상태 지정은 보호자만 (외부로 받은 제보를 직접 신뢰로 등록하는 경우)
+        status = "pending"
+        source = "witness"
+        if body.get("source") == "owner" and self._owner_ok(notice):
+            source = "owner"
+            if body.get("status") in VALID_STATUS:
+                status = body["status"]
+        reports = notice.setdefault("reports", [])
         report = {
-            "id": max((r["id"] for r in db["reports"]), default=0) + 1,
+            "id": max((r["id"] for r in reports), default=0) + 1,
             "seenAt": str(body["seenAt"])[:5],
             "receivedAt": datetime.now().strftime("%H:%M"),
             "place": (str(body.get("place") or "").strip() or "지도에 찍은 위치")[:80],
@@ -184,10 +321,11 @@ class Handler(BaseHTTPRequestHandler):
             "photo": body.get("photo") if isinstance(body.get("photo"), str)
                      and str(body.get("photo")).startswith("data:image/") else None,
         }
-        db["reports"].append(report)
+        reports.append(report)
         save_db(db)
         self._json(report, 201)
 
+    # ── 공고 등록 (누구나 — 만든 사람이 보호자가 됨) ──
     def _create_notice(self):
         body = self._body()
         if body is None:
@@ -197,6 +335,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if body.get("lostX") is None or body.get("lostY") is None:
             self._json({"error": "유실 위치를 지도에 찍어주세요"}, 400)
+            return
+        pin = str(body.get("pin") or "").strip()
+        if not re.fullmatch(r"\d{4}", pin):
+            self._json({"error": "PIN은 숫자 4자리로 정해주세요"}, 400)
             return
 
         def s(key, default="", n=60):
@@ -209,7 +351,12 @@ class Handler(BaseHTTPRequestHandler):
                 return default
 
         name = s("dogName", n=20)
-        slug = "dog-" + datetime.now().strftime("%m%d%H%M%S")
+        db = load_db()
+        slug = "dog-" + secrets.token_hex(3)
+        while slug in db["notices"]:
+            slug = "dog-" + secrets.token_hex(3)
+        owner_key = secrets.token_urlsafe(18)
+        salt = secrets.token_hex(8)
         notice = {
             "slug": slug,
             "dogName": name,
@@ -224,19 +371,76 @@ class Handler(BaseHTTPRequestHandler):
             "lostPlace": s("lostPlace", "지도에 찍은 위치", 80),
             "lostX": round(float(body["lostX"])),
             "lostY": round(float(body["lostY"])),
-            "centerLat": geo("centerLat", 37.6447),   # 유실 위치(현재 위치)의 실제 위경도 → 모든 지도 중심
+            "centerLat": geo("centerLat", 37.6447),
             "centerLng": geo("centerLng", 127.0763),
             "status": "찾는 중",
+            "createdAt": datetime.now().strftime("%Y-%m-%dT%H:%M"),
+            "ownerKey": owner_key,
+            "pinSalt": salt,
+            "pinHash": hash_pin(pin, salt),
+            "reports": [],
         }
-        db = load_db()
-        db["notice"] = notice
-        if body.get("resetReports"):     # 새 공고 → 제보 초기화
-            db["reports"] = []
+        db["notices"][slug] = notice
         save_db(db)
-        self._json(notice, 201)
+        self._json({"notice": public_notice(notice), "slug": slug, "ownerKey": owner_key}, 201)
 
+    # ── PIN으로 관리 권한 되찾기 ────────────────
+    def _auth_pin(self):
+        body = self._body()
+        if body is None:
+            return
+        db = load_db()
+        slug = str(body.get("slug") or "").strip()
+        notice = db["notices"].get(slug)
+        pin = str(body.get("pin") or "").strip()
+        if not notice or not notice.get("pinHash"):
+            self._json({"error": "공고를 찾을 수 없거나 PIN이 설정되지 않았어요"}, 404)
+            return
+        locked_until = notice.get("pinLockedUntil", 0)
+        if locked_until and now_ts() < locked_until:
+            wait = int((locked_until - now_ts()) / 60) + 1
+            self._json({"error": f"PIN을 여러 번 틀렸어요. {wait}분 뒤에 다시 시도해주세요"}, 429)
+            return
+        if not hmac.compare_digest(notice["pinHash"], hash_pin(pin, notice.get("pinSalt", ""))):
+            fails = notice.get("pinFails", 0) + 1
+            notice["pinFails"] = fails
+            if fails >= PIN_MAX_FAILS:
+                notice["pinLockedUntil"] = now_ts() + PIN_LOCK_SECONDS
+                notice["pinFails"] = 0
+            save_db(db)
+            left = max(0, PIN_MAX_FAILS - fails)
+            self._json({"error": f"PIN이 맞지 않아요 (남은 시도 {left}회)"}, 401)
+            return
+        notice["pinFails"] = 0
+        notice["pinLockedUntil"] = 0
+        save_db(db)
+        self._json({"ownerKey": notice["ownerKey"], "notice": public_notice(notice)})
+
+    # ── 제보 상태 변경 / 공고 수정 (보호자만) ───
     def do_PATCH(self):
         path = urlparse(self.path).path
+        db = load_db()
+        notice = self._find_notice(db)
+        if not notice:
+            self._json({"error": "공고를 찾을 수 없어요"}, 404)
+            return
+        if not self._owner_ok(notice):
+            self._json({"error": "이 공고를 관리할 권한이 없어요"}, 403)
+            return
+
+        if path == "/api/notice":
+            body = self._body()
+            if body is None:
+                return
+            status = str(body.get("status") or "").strip()
+            if status not in {"찾는 중", "찾았어요"}:
+                self._json({"error": "status는 '찾는 중' 또는 '찾았어요'여야 합니다"}, 400)
+                return
+            notice["status"] = status
+            save_db(db)
+            self._json(public_notice(notice))
+            return
+
         if not path.startswith("/api/reports/"):
             self._json({"error": "not found"}, 404)
             return
@@ -252,8 +456,7 @@ class Handler(BaseHTTPRequestHandler):
         if status not in VALID_STATUS:
             self._json({"error": f"status는 {sorted(VALID_STATUS)} 중 하나여야 합니다"}, 400)
             return
-        db = load_db()
-        for r in db["reports"]:
+        for r in notice.get("reports", []):
             if r["id"] == rid:
                 r["status"] = status
                 save_db(db)
@@ -280,10 +483,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    load_db()  # 최초 실행 시 시드 데이터 생성
+    load_db()  # 최초 실행 시 데이터 파일 생성 / 형식 이전
     print(f"멍백홈 서버 시작: http://localhost:{PORT}")
-    print(f"  보호자 지도   http://localhost:{PORT}/")
-    print(f"  공고·공유     http://localhost:{PORT}/share")
-    print(f"  목격자 제보   http://localhost:{PORT}/r/kong-i")
+    print(f"  첫 화면(공고 등록/관리)  http://localhost:{PORT}/")
+    print(f"  데모 관리 화면           http://localhost:{PORT}/m/{DEMO_OWNER_KEY}")
+    print(f"  데모 목격자 제보         http://localhost:{PORT}/r/{DEMO_SLUG}")
     print(f"  QR 생성 지원: {'예' if HAS_QR else '아니오 (py -m pip install qrcode)'}")
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()

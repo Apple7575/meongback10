@@ -31,6 +31,10 @@
   .form-err{font-size:12.5px; color:var(--important); font-weight:700; display:none; margin:0}
   .form-err.show{display:block}
   .warn{font-size:11.5px; color:var(--ink-faint); text-align:center; margin:0}
+  .pin-why{margin:0; font-size:12.5px; color:var(--ink-soft); line-height:1.6;
+    background:var(--surface-2); border-radius:11px; padding:11px 13px}
+  .pin-why b{color:var(--navy)}
+  #pin{letter-spacing:.5em; font-weight:800; text-align:center; font-size:19px}
   @media (max-width:520px){ .grid2{grid-template-columns:1fr} }
 </style>
 </head>
@@ -87,14 +91,28 @@
         <button class="chip" type="button" id="useLoc">📍 내 현재 위치로</button>
       </div>
     </div>
-    <p class="form-err" id="formErr">이름과 유실 위치는 필수예요.</p>
-    <button class="submit-btn" id="submit" type="button">공고 등록하고 QR 만들기</button>
-    <p class="warn">등록하면 기존 제보 목록이 초기화되고 새 수색이 시작됩니다.</p>
+  </div>
+
+  <div class="card c-card">
+    <h2>내 공고 관리용 PIN</h2>
+    <p class="pin-why">
+      멍백홈은 <b>회원가입이 없어요.</b> 대신 공고를 만들면 나만의 <b>관리 링크</b>가 생깁니다.<br>
+      휴대폰을 바꾸거나 링크를 잃어버렸을 때 이 <b>PIN 4자리</b>로 내 공고를 다시 찾을 수 있어요.
+    </p>
+    <div class="field">
+      <label for="pin">PIN 숫자 4자리 <span class="req">*</span></label>
+      <input type="text" id="pin" inputmode="numeric" autocomplete="off"
+             maxlength="4" pattern="[0-9]*" placeholder="예: 4821">
+    </div>
+    <p class="form-err" id="formErr">이름과 유실 위치, PIN 4자리는 필수예요.</p>
+    <button class="submit-btn" id="submit" type="button">공고 등록하고 제보 링크 만들기</button>
+    <p class="warn">등록하면 목격자에게 뿌릴 제보 링크와 QR이 바로 만들어져요.</p>
   </div>
 </div>
 
 <div class="toast" id="toast" role="status"></div>
 
+<script src="/session.js"></script>
 <script src="/config.js"></script>
 <script src="/mapengine.js"></script>
 <script>
@@ -134,11 +152,18 @@ MapEngine.create(document.getElementById("miniMapContainer"),
 
 $("#useLoc").addEventListener("click",()=>useCurrentLocation(true));
 
+$("#pin").addEventListener("input",e=>{ e.target.value=e.target.value.replace(/\D/g,"").slice(0,4); });
+
 $("#submit").addEventListener("click",async()=>{
   const dogName=$("#dogName").value.trim();
-  if(!dogName || !picked){
+  const pin=$("#pin").value.trim();
+  if(!dogName || !picked || !/^\d{4}$/.test(pin)){
+    $("#formErr").textContent = !dogName ? "강아지 이름을 입력해주세요."
+      : !picked ? "지도에서 마지막으로 본 위치를 찍어주세요."
+      : "관리용 PIN을 숫자 4자리로 정해주세요.";
     $("#formErr").classList.add("show");
-    (!dogName ? $("#dogName") : document.querySelector(".mini-map")).scrollIntoView({behavior:"smooth",block:"center"});
+    (!dogName ? $("#dogName") : !picked ? document.querySelector(".mini-map") : $("#pin"))
+      .scrollIntoView({behavior:"smooth",block:"center"});
     return;
   }
   const btn=$("#submit"); btn.disabled=true; btn.textContent="등록 중…";
@@ -150,12 +175,17 @@ $("#submit").addEventListener("click",async()=>{
         health:$("#health").value.trim(), caution:$("#caution").value.trim(),
         lostAt:$("#lostAt").value.slice(0,16), lostPlace:$("#lostPlace").value.trim(),
         lostX:picked.x, lostY:picked.y,
-        centerLat:geoCenter.lat, centerLng:geoCenter.lng, resetReports:true,
+        centerLat:geoCenter.lat, centerLng:geoCenter.lng, pin,
       })});
-    if(!res.ok) throw new Error(await res.text());
+    if(!res.ok) throw new Error((await res.json().catch(()=>({}))).error || "실패");
+    const data=await res.json();
+    MB.save(data.slug, data.ownerKey, data.notice.dogName);   // 이 브라우저를 보호자로 기억
     toast("공고가 등록됐어요! 공유 화면으로 이동합니다");
-    setTimeout(()=>location.href="/share", 900);
-  }catch(err){ toast("등록에 실패했어요 — 입력을 확인해주세요"); btn.disabled=false; btn.textContent="공고 등록하고 QR 만들기"; }
+    setTimeout(()=>location.href="/share?slug="+encodeURIComponent(data.slug), 900);
+  }catch(err){
+    toast(String(err.message||"").includes("PIN") ? "PIN은 숫자 4자리로 정해주세요" : "등록에 실패했어요 — 입력을 확인해주세요");
+    btn.disabled=false; btn.textContent="공고 등록하고 제보 링크 만들기";
+  }
 });
 </script>
 </body>
