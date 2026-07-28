@@ -181,15 +181,14 @@ function toast(msg){
   clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2400);
 }
 
-/* 어떤 공고를 보여줄지: ?slug= → 저장된 내 공고 → 데모 */
-const saved = MB.read();
+/* 어떤 공고를 보여줄지: ?slug= → 지금 보고 있는 내 공고 → 데모 */
 const askedSlug = new URLSearchParams(location.search).get("slug");
-const slug = askedSlug || (saved && saved.slug) || "demo";
+const slug = askedSlug || MB.getActiveSlug() || "demo";
 let reportUrl = MB.reportUrl(slug);
 
-/* 내 관리 링크 — 내 공고일 때만 보여준다 */
+/* 내 관리 링크 — 내가 가진 공고일 때만 보여준다 */
 (function(){
-  const mine = saved && saved.slug === slug ? saved : null;
+  const mine = MB.find(slug);
   if(!mine){ $("#ownerCard").style.display="none"; return; }
   const mUrl = MB.manageUrl(mine.ownerKey);
   $("#manageUrl").textContent = mUrl.replace(/^https?:\/\//,"");

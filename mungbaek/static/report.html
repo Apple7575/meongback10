@@ -184,7 +184,7 @@
 <script>
 const $=s=>document.querySelector(s);
 let picked=null, bearing=null, dirMode="none", dirPicking=false;
-let photoData=null, engine=null, notice=null;
+let photoData=null, thumbData=null, engine=null, notice=null;
 
 function toast(msg){
   const t=$("#toast"); t.textContent=msg; t.classList.add("show");
@@ -309,15 +309,19 @@ document.querySelectorAll(".dir-btn").forEach(b=>{
 });
 
 /* 사진 리사이즈 */
+function resizeTo(img, max, quality){
+  const sc=Math.min(1, max/Math.max(img.width,img.height));
+  const cv=document.createElement("canvas");
+  cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
+  cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
+  return cv.toDataURL("image/jpeg",quality);
+}
 $("#wPhoto").addEventListener("change",e=>{
   const f=e.target.files[0]; if(!f)return;
   const img=new Image();
   img.onload=()=>{
-    const max=900, sc=Math.min(1, max/Math.max(img.width,img.height));
-    const cv=document.createElement("canvas");
-    cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
-    cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
-    photoData=cv.toDataURL("image/jpeg",0.82);
+    photoData=resizeTo(img,900,0.82);
+    thumbData=resizeTo(img,150,0.6);   // 목록용 작은 이미지 (폴링 때 원본을 안 받도록)
     $("#photoPreview").innerHTML=`<img src="${photoData}" alt="">`;
     $("#photoLabel").innerHTML=`${f.name}<br><b style="color:var(--navy)">탭해서 다른 사진 선택</b>`;
     URL.revokeObjectURL(img.src);
@@ -340,7 +344,7 @@ $("#wSubmit").addEventListener("click",async()=>{
         dir: bearing===null ? "방향 확인 안 됨" : MapEngine.bearingToKo(bearing),
         memo:$("#wMemo").value.trim(),
         contact:$("#wContact").checked,
-        photo:photoData, source:"witness",
+        photo:photoData, thumb:thumbData, source:"witness",
       })});
     if(!res.ok) throw new Error(await res.text());
     if(notice) $("#doneMsg").innerHTML=`${notice.dogName} 보호자에게 방금 알림이 갔어요.<br>덕분에 ${notice.dogName}가 집에 갈 확률이 높아졌습니다. 감사합니다!`;
@@ -353,7 +357,7 @@ $("#wSubmit").addEventListener("click",async()=>{
 
 /* 초기화 */
 $("#newReport").addEventListener("click",()=>{
-  picked=null; bearing=null; dirMode="none"; dirPicking=false; photoData=null;
+  picked=null; bearing=null; dirMode="none"; dirPicking=false; photoData=null; thumbData=null;
   engine&&engine.clearMarker();
   selDirBtn("none"); updateDirResult();
   $("#miniHint").textContent="지도를 탭하면 목격 위치가 표시돼요";

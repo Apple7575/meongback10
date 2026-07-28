@@ -99,7 +99,7 @@ $("#submit").addEventListener("click",async()=>{
       body:JSON.stringify({slug,pin})});
     const data=await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(data.error||"확인에 실패했어요");
-    MB.save(slug, data.ownerKey, data.notice && data.notice.dogName);
+    MB.add(slug, data.ownerKey, data.notice && data.notice.dogName);
     say(`${(data.notice&&data.notice.dogName)||""} 공고를 찾았어요! 관리 화면으로 이동합니다.`,"ok");
     setTimeout(()=>location.href="/m/"+encodeURIComponent(data.ownerKey), 800);
   }catch(err){

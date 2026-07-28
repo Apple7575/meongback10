@@ -179,7 +179,7 @@ $("#submit").addEventListener("click",async()=>{
       })});
     if(!res.ok) throw new Error((await res.json().catch(()=>({}))).error || "실패");
     const data=await res.json();
-    MB.save(data.slug, data.ownerKey, data.notice.dogName);   // 이 브라우저를 보호자로 기억
+    MB.add(data.slug, data.ownerKey, data.notice.dogName);   // 기존 공고는 그대로, 새 공고를 추가
     toast("공고가 등록됐어요! 공유 화면으로 이동합니다");
     setTimeout(()=>location.href="/share?slug="+encodeURIComponent(data.slug), 900);
   }catch(err){

@@ -126,12 +126,31 @@
     font-size:13.5px; font-weight:800; padding:11px 18px; border-radius:11px}
 
   .ghost-btn.on{background:var(--navy-soft)}
+  .found-btn{width:100%; padding:12px; border-radius:12px; font-size:13.5px; font-weight:800;
+    border:1.5px solid var(--trust); color:var(--trust); background:var(--trust-bg)}
+  .found-btn.done{border-color:var(--line); color:var(--ink-faint); background:var(--surface-2)}
 
   /* 헤더/버튼 아이콘 */
   .bi{display:inline-flex; width:17px; height:17px; flex:none}
   .bi svg{width:100%; height:100%}
   .st-btn .ic{display:inline-flex; width:19px; height:19px}
   .st-btn .ic svg{width:100%; height:100%}
+
+  /* 여러 공고 전환 — 데스크톱·모바일 공통 */
+  .notice-switch{display:flex; align-items:center; gap:7px; grid-column:1/-1;
+    overflow-x:auto; scrollbar-width:none; padding:2px}
+  .notice-switch::-webkit-scrollbar{display:none}
+  .ns-list{display:flex; gap:7px; flex:1; min-width:0}
+  .ns-tab{flex:none; display:inline-flex; align-items:center; gap:7px; cursor:pointer;
+    background:var(--surface); border:1.5px solid var(--line); border-radius:99px;
+    padding:8px 14px; font-size:13px; font-weight:800; color:var(--ink-soft); white-space:nowrap}
+  .ns-tab.on{border-color:var(--navy); background:var(--navy-soft); color:var(--navy)}
+  .ns-tab .ns-cnt{font-size:11px; font-weight:800; color:var(--ink-faint)}
+  .ns-tab.on .ns-cnt{color:var(--navy)}
+  .ns-tab .ns-found{font-size:10.5px; color:var(--trust)}
+  .ns-add{flex:none; width:38px; height:38px; border-radius:50%; text-decoration:none;
+    display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:800;
+    border:1.5px dashed var(--line); color:var(--navy); background:var(--surface)}
 
   /* 모바일 전용 요소 — 데스크톱에선 숨김 */
   .m-strip, .m-actions, .map-hint{display:none}
@@ -179,7 +198,8 @@
       display:flex; flex-wrap:wrap; gap:3px 10px; max-width:calc(100% - 16px)}
     .lg-dot{width:8px;height:8px} .lg-zone{width:10px;height:10px}
     .side{display:contents}
-    /* 순서: 요약 스트립(-4) → 지도(-3) → 행동 버튼(-2) → 수색 안내(-1) → 강아지 상세(0) */
+    /* 순서: 공고 전환(-5) → 요약 스트립(-4) → 지도(-3) → 행동(-2) → 수색 안내(-1) → 상세(0) */
+    .notice-switch{order:-5}
     .map-col{order:-3}
     .zone-wrap{order:-1}
     .dog-card-wrap{order:0}
@@ -290,6 +310,12 @@
     <span class="m-strip-more">자세히</span>
   </button>
 
+  <!-- 공고를 2개 이상 관리할 때만 보이는 전환 줄 -->
+  <div class="notice-switch" id="noticeSwitch" hidden>
+    <div class="ns-list" id="nsList"></div>
+    <a class="ns-add" href="/new" title="새 공고 등록">＋</a>
+  </div>
+
   <!-- 모바일 전용: 지금 눌러야 할 것 -->
   <div class="m-actions">
     <a class="m-act primary" href="/share"><span class="bi" id="mShareIcon"></span>제보 링크 공유하기</a>
@@ -339,6 +365,7 @@
       </div>
       <div class="dog-facts" id="dogFacts"></div>
       <div class="caution" id="dogCaution"></div>
+      <button class="found-btn" id="foundBtn" type="button">🎉 강아지를 찾았어요 — 수색 종료</button>
       <a href="/new" style="font-size:12px;font-weight:700;color:var(--navy);text-decoration:none;text-align:center">＋ 다른 강아지 유실 공고 등록하기 →</a>
     </section>
 
@@ -495,7 +522,17 @@ function sceneSvg(scene,big=false){
       <rect x="12" y="33" width="3.4" height="7" rx="1.7" fill="#FFFDF8"/><rect x="26" y="33" width="3.4" height="7" rx="1.7" fill="#FFFDF8"/>
     </g></svg>`;
 }
-const thumbHtml=r=>r.photo?`<img src="${r.photo}" alt="">`:sceneSvg(r.scene);
+const thumbHtml=r=>(r.thumb||r.photo)?`<img src="${r.thumb||r.photo}" alt="" loading="lazy">`:sceneSvg(r.scene);
+/* 사진 원본은 상세를 열 때만 받아온다 (목록 폴링을 가볍게) */
+const photoCache=new Map();
+async function loadPhoto(id){
+  if(photoCache.has(id)) return photoCache.get(id);
+  try{
+    const d=await api(`/api/photo?slug=${encodeURIComponent(mySlug)}&id=${id}`);
+    photoCache.set(id, d.photo||null);
+    return d.photo||null;
+  }catch(e){ return null; }
+}
 
 /* ── API ── */
 async function api(path, opts){ const res=await fetch(path, opts); if(!res.ok) throw new Error(await res.text()); return res.json(); }
@@ -524,6 +561,7 @@ async function loadNotice(){
   $("#mStripStatus").textContent=notice.status;
   $("#mStripSub").textContent=`${notice.breed} · 마지막 목격 ${lostT} ${notice.lostPlace.replace("노원구 ","")}`;
   document.title=`멍백홈 · ${notice.dogName} 유실목격지도`;
+  syncStatusUI();
 }
 
 async function refreshReports({silent=false}={}){
@@ -621,8 +659,14 @@ function openDetail(id){
   const r=reports.find(x=>x.id===id); if(!r)return;
   activeReport=id; newIds.delete(id);
   const st=STATUS[r.status];
-  $("#detailPhoto").innerHTML=(r.photo?`<img src="${r.photo}" alt="목격 사진">`:sceneSvg(r.scene,true))+
+  $("#detailPhoto").innerHTML=((r.thumb||r.photo)?`<img id="dPhotoImg" src="${r.thumb||r.photo}" alt="목격 사진">`:sceneSvg(r.scene,true))+
     `<button class="detail-close" type="button" aria-label="닫기" onclick="closeDetail()">✕</button>`;
+  if(r.hasPhoto || r.photo){   /* 흐린 썸네일을 먼저 띄우고 원본이 오면 교체 */
+    loadPhoto(id).then(p=>{
+      const el=document.getElementById("dPhotoImg");
+      if(p && el && activeReport===id) el.src=p;
+    });
+  }
   $("#dSeen").textContent=r.seenAt+" 목격";
   $("#dBadge").textContent=st.label; $("#dBadge").className="badge b-"+st.cls;
   $("#dPlace").textContent=r.place;
@@ -709,6 +753,27 @@ function toggleAddMode(){
 }
 $("#addBtn").addEventListener("click",toggleAddMode);
 $("#mAddBtn").addEventListener("click",toggleAddMode);
+/* 찾았어요 — 수색 종료 / 재개 */
+$("#foundBtn").addEventListener("click",async()=>{
+  const found = notice.status==="찾았어요";
+  if(!found && !confirm(`${notice.dogName}를 찾으셨나요?\n수색을 종료하면 공고 상태가 '찾았어요'로 바뀝니다.`)) return;
+  try{
+    notice=await ownerFetch(`/api/notice?slug=${encodeURIComponent(mySlug)}`,
+      {method:"PATCH", body:JSON.stringify({status: found ? "찾는 중" : "찾았어요"})});
+    syncStatusUI();
+    toast(found ? "다시 수색 중으로 바꿨어요" : `${notice.dogName}를 찾은 걸 축하해요! 🎉`);
+  }catch(e){ toast("변경에 실패했어요 — 잠시 후 다시 시도해주세요"); }
+});
+function syncStatusUI(){
+  const found = notice.status==="찾았어요";
+  $("#dogStatus").textContent=notice.status;
+  $("#mStripStatus").textContent=notice.status;
+  $("#foundBtn").textContent = found ? "다시 수색 중으로 되돌리기" : "🎉 강아지를 찾았어요 — 수색 종료";
+  $("#foundBtn").classList.toggle("done", found);
+  const d=Math.max(0,Math.floor((Date.now()-new Date(notice.lostAt))/86400000));
+  $("#dday").innerHTML=`<span class="dd-status">${notice.status} </span>D+${d}`;
+}
+
 /* 요약 스트립 탭 → 강아지 상세로 이동 */
 $("#mStrip").addEventListener("click",()=>
   document.querySelector(".dog-card-wrap").scrollIntoView({behavior:"smooth",block:"center"}));
@@ -789,7 +854,7 @@ async function resolveOwner(){
   if(urlKey){
     const n=await api(`/api/notice?key=${encodeURIComponent(urlKey)}`).catch(()=>null);
     if(n){
-      MB.save(n.slug, urlKey, n.dogName);
+      MB.add(n.slug, urlKey, n.dogName);   // 기존 공고 권한은 그대로 두고 추가
       history.replaceState(null,"","/");   // 비밀 키를 주소창에서 지움
       return n.slug;
     }
@@ -797,8 +862,34 @@ async function resolveOwner(){
     setTimeout(()=>location.href="/find", 1600);
     return "";
   }
+  /* ?slug= 로 특정 공고를 지정할 수도 있음 (내가 가진 공고일 때만) */
+  const asked=new URLSearchParams(location.search).get("slug");
+  if(asked && MB.find(asked)){ MB.setActive(asked); history.replaceState(null,"","/"); return asked; }
   const saved=MB.read();
   return saved && saved.ownerKey ? saved.slug : "";
+}
+
+/* 내가 가진 공고가 2개 이상이면 전환 줄을 보여준다 */
+async function renderNoticeSwitch(){
+  const list=MB.readList();
+  const box=$("#noticeSwitch");
+  if(list.length<2){ box.hidden=true; return; }
+  box.hidden=false;
+  const infos=await Promise.all(list.map(async rec=>{
+    try{
+      const n=await api(`/api/notice?slug=${encodeURIComponent(rec.slug)}`);
+      return {slug:rec.slug, name:n.dogName, count:n.reportCount||0, found:n.status==="찾았어요"};
+    }catch(e){ return {slug:rec.slug, name:rec.dogName||"공고", count:0, found:false, gone:true}; }
+  }));
+  $("#nsList").innerHTML=infos.map(i=>
+    `<button class="ns-tab ${i.slug===mySlug?"on":""}" data-slug="${i.slug}" type="button">
+       ${i.name}${i.found?'<span class="ns-found">찾음</span>':`<span class="ns-cnt">${i.count}</span>`}
+     </button>`).join("");
+  $("#nsList").querySelectorAll(".ns-tab").forEach(b=>b.addEventListener("click",()=>{
+    if(b.dataset.slug===mySlug) return;
+    MB.setActive(b.dataset.slug);
+    location.href="/";     // 해당 공고로 새로 로드
+  }));
 }
 
 function showLanding(){
@@ -821,10 +912,12 @@ function showLanding(){
 
   try{ await loadNotice(); }
   catch(e){
-    MB.clear();            // 서버에서 사라진 공고 — 저장된 키를 버리고 처음 화면으로
+    MB.remove(mySlug);     // 서버에서 사라진 공고만 목록에서 뺀다 (다른 공고는 유지)
+    if(MB.readList().length){ location.href="/"; return; }
     showLanding();
     return;
   }
+  renderNoticeSwitch();
   MapEngine.setGeoCenter(notice.centerLat, notice.centerLng);   /* 공고 위치를 지도 중심으로 */
   MapEngine.create(document.getElementById("mapContainer"), {mode:"view", onPinClick:openDetail, onMapTap}, eng=>{
     engine=eng; refreshReports();

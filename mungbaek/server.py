@@ -142,28 +142,51 @@ def _migrate(db):
     return {"notices": notices}, True
 
 
+_DB = None   # 메모리에 올려둔 DB — 요청마다 파일을 다시 읽지 않는다
+
+
+def _read_disk():
+    if not DB_PATH.exists():
+        return _blank_db(), True
+    try:
+        db = json.loads(DB_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return _blank_db(), True
+    db, changed = _migrate(db)
+    if DEMO_SLUG not in db.get("notices", {}):
+        db.setdefault("notices", {})[DEMO_SLUG] = demo_notice()
+        changed = True
+    return db, changed
+
+
+def _write_disk(db):
+    """임시 파일에 쓰고 바꿔치기 — 저장 도중 서버가 죽어도 파일이 깨지지 않는다."""
+    tmp = DB_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(DB_PATH)
+
+
 def load_db():
+    """DB를 돌려준다. 값을 고칠 때는 반드시 LOCK 안에서 하고 save_db()를 부를 것."""
+    global _DB
     with LOCK:
-        if not DB_PATH.exists():
-            db = _blank_db()
-            DB_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
-            return db
-        try:
-            db = json.loads(DB_PATH.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            db = _blank_db()
-        db, changed = _migrate(db)
-        if DEMO_SLUG not in db["notices"]:
-            db["notices"][DEMO_SLUG] = demo_notice()
-            changed = True
-        if changed:
-            DB_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
-        return db
+        if _DB is None:
+            _DB, changed = _read_disk()
+            if changed:
+                _write_disk(_DB)
+        return _DB
 
 
-def save_db(db):
+def save_db(db=None):
     with LOCK:
-        DB_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_disk(_DB if db is None else db)
+
+
+def light_report(r):
+    """목록·폴링용 — 사진 원본은 빼고 작은 썸네일만 (2초마다 원본을 다시 받지 않도록)."""
+    out = {k: v for k, v in r.items() if k != "photo"}
+    out["hasPhoto"] = bool(r.get("photo"))
+    return out
 
 
 def public_notice(n):
@@ -239,22 +262,42 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
 
         if path == "/api/notice":
-            db = load_db()
-            n = self._find_notice(db)
-            if not n:
-                self._json({"error": "공고를 찾을 수 없어요"}, 404)
-                return
-            out = public_notice(n)
-            if self._owner_ok(n):
-                out["isOwner"] = True
-            self._json(out)
+            with LOCK:
+                db = load_db()
+                n = self._find_notice(db)
+                if not n:
+                    self._json({"error": "공고를 찾을 수 없어요"}, 404)
+                    return
+                out = public_notice(n)
+                if self._owner_ok(n):
+                    out["isOwner"] = True
+                self._json(out)
         elif path == "/api/reports":
-            db = load_db()
-            n = self._find_notice(db)
-            if not n:
-                self._json({"error": "공고를 찾을 수 없어요"}, 404)
-                return
-            self._json(n.get("reports", []))
+            with LOCK:
+                db = load_db()
+                n = self._find_notice(db)
+                if not n:
+                    self._json({"error": "공고를 찾을 수 없어요"}, 404)
+                    return
+                self._json([light_report(r) for r in n.get("reports", [])])
+        elif path == "/api/photo":
+            # 사진 원본은 제보 상세를 열 때만 따로 받아간다
+            with LOCK:
+                db = load_db()
+                n = self._find_notice(db)
+                if not n:
+                    self._json({"error": "공고를 찾을 수 없어요"}, 404)
+                    return
+                try:
+                    rid = int((self._query().get("id") or ["0"])[0])
+                except ValueError:
+                    self._json({"error": "invalid id"}, 400)
+                    return
+                for r in n.get("reports", []):
+                    if r["id"] == rid:
+                        self._json({"photo": r.get("photo")})
+                        return
+                self._json({"error": "report not found"}, 404)
         elif path == "/api/qr":
             self._qr((self._query().get("data") or [""])[0])
         elif path in PAGES:
@@ -282,6 +325,11 @@ class Handler(BaseHTTPRequestHandler):
         body = self._body()
         if body is None:
             return
+        # 읽기~쓰기를 한 덩어리로 잠근다 (동시에 들어온 제보가 서로를 덮어쓰지 않게)
+        with LOCK:
+            return self._create_report_locked(body)
+
+    def _create_report_locked(self, body):
         db = load_db()
         notice = db["notices"].get(str(body.get("slug") or ""))
         if not notice:
@@ -320,16 +368,22 @@ class Handler(BaseHTTPRequestHandler):
             "scene": str(body.get("scene") or "street")[:20],
             "photo": body.get("photo") if isinstance(body.get("photo"), str)
                      and str(body.get("photo")).startswith("data:image/") else None,
+            "thumb": body.get("thumb") if isinstance(body.get("thumb"), str)
+                     and str(body.get("thumb")).startswith("data:image/") else None,
         }
         reports.append(report)
         save_db(db)
-        self._json(report, 201)
+        self._json(light_report(report), 201)
 
     # ── 공고 등록 (누구나 — 만든 사람이 보호자가 됨) ──
     def _create_notice(self):
         body = self._body()
         if body is None:
             return
+        with LOCK:
+            return self._create_notice_locked(body)
+
+    def _create_notice_locked(self, body):
         if not str(body.get("dogName") or "").strip():
             self._json({"error": "강아지 이름은 필수입니다"}, 400)
             return
@@ -389,6 +443,10 @@ class Handler(BaseHTTPRequestHandler):
         body = self._body()
         if body is None:
             return
+        with LOCK:
+            return self._auth_pin_locked(body)
+
+    def _auth_pin_locked(self, body):
         db = load_db()
         slug = str(body.get("slug") or "").strip()
         notice = db["notices"].get(slug)
@@ -418,6 +476,10 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── 제보 상태 변경 / 공고 수정 (보호자만) ───
     def do_PATCH(self):
+        with LOCK:
+            return self._do_patch_locked()
+
+    def _do_patch_locked(self):
         path = urlparse(self.path).path
         db = load_db()
         notice = self._find_notice(db)
@@ -460,7 +522,7 @@ class Handler(BaseHTTPRequestHandler):
             if r["id"] == rid:
                 r["status"] = status
                 save_db(db)
-                self._json(r)
+                self._json(light_report(r))
                 return
         self._json({"error": "report not found"}, 404)
 
@@ -479,7 +541,11 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, buf.getvalue(), "image/svg+xml")
 
     def log_message(self, fmt, *args):
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] {fmt % args}")
+        line = fmt % args
+        # 비밀 관리 링크·키가 로그에 남지 않게 가린다 (로그를 보는 사람 = 주인이 됨)
+        line = re.sub(r"/m/[^\s\"?]+", "/m/***", line)
+        line = re.sub(r"([?&]key=)[^\s\"&]+", r"\1***", line)
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] {line}")
 
 
 if __name__ == "__main__":
