@@ -47,14 +47,19 @@
   <div class="card c-card">
     <h2>내 공고 다시 찾기</h2>
     <p class="lead">
-      멍백홈은 회원가입이 없어요. 공고를 만들 때 정한 <b>PIN 4자리</b>와
-      <b>제보 링크 주소</b>만 있으면 관리 권한을 다시 받을 수 있어요.
+      멍백홈은 회원가입이 없어요. 공고를 만들 때 적은 <b>강아지 이름·나이</b>와
+      <b>PIN 4자리</b>만 있으면 관리 권한을 다시 받을 수 있어요.
     </p>
 
     <div class="field">
-      <label for="slug">제보 링크 또는 공고 주소</label>
-      <input type="text" id="slug" placeholder="예: dog-a1b2c3" autocomplete="off">
-      <div class="hint">목격자에게 보낸 링크(…/r/<b>dog-a1b2c3</b>)의 마지막 부분이에요. 링크 전체를 붙여넣어도 돼요.</div>
+      <label for="dogName">강아지 이름</label>
+      <input type="text" id="dogName" maxlength="20" placeholder="예: 콩이" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label for="age">나이</label>
+      <input type="text" id="age" maxlength="20" placeholder="예: 7살" autocomplete="off">
+      <div class="hint">공고에 적은 나이예요. 숫자만 맞으면 돼요(7 / 7살 모두 인정).</div>
     </div>
 
     <div class="field">
@@ -78,28 +83,21 @@ function say(text, kind){ const m=$("#msg"); m.textContent=text; m.className="ms
 
 $("#pin").addEventListener("input",e=>{ e.target.value=e.target.value.replace(/\D/g,"").slice(0,4); });
 
-/* 링크 전체를 붙여넣어도 공고 id만 뽑아낸다 */
-function normalizeSlug(v){
-  v=v.trim();
-  const m=v.match(/\/(?:r|share)\/([^/?#\s]+)/) || v.match(/[?&]slug=([^&\s]+)/);
-  if(m) return decodeURIComponent(m[1]);
-  return v.replace(/^https?:\/\/[^/]+\/?/,"").replace(/[/?#].*$/,"");
-}
-
 $("#submit").addEventListener("click",async()=>{
-  const slug=normalizeSlug($("#slug").value);
+  const dogName=$("#dogName").value.trim();
+  const age=$("#age").value.trim();
   const pin=$("#pin").value.trim();
-  if(!slug || !/^\d{4}$/.test(pin)){
-    say(!slug ? "제보 링크 또는 공고 주소를 입력해주세요." : "PIN을 숫자 4자리로 입력해주세요.","err");
+  if(!dogName || !/^\d{4}$/.test(pin)){
+    say(!dogName ? "강아지 이름을 입력해주세요." : "PIN을 숫자 4자리로 입력해주세요.","err");
     return;
   }
   const btn=$("#submit"); btn.disabled=true; btn.textContent="확인 중…";
   try{
     const res=await fetch("/api/auth",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({slug,pin})});
+      body:JSON.stringify({dogName, age, pin})});
     const data=await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(data.error||"확인에 실패했어요");
-    MB.add(slug, data.ownerKey, data.notice && data.notice.dogName);
+    MB.add(data.slug, data.ownerKey, data.notice && data.notice.dogName);   // 자동 저장 — 다음부턴 바로 들어감
     say(`${(data.notice&&data.notice.dogName)||""} 공고를 찾았어요! 관리 화면으로 이동합니다.`,"ok");
     setTimeout(()=>location.href="/m/"+encodeURIComponent(data.ownerKey), 800);
   }catch(err){
@@ -107,7 +105,8 @@ $("#submit").addEventListener("click",async()=>{
     btn.disabled=false; btn.textContent="내 공고 찾기";
   }
 });
-$("#pin").addEventListener("keydown",e=>{ if(e.key==="Enter") $("#submit").click(); });
+[$("#dogName"),$("#age"),$("#pin")].forEach(el=>
+  el.addEventListener("keydown",e=>{ if(e.key==="Enter") $("#submit").click(); }));
 </script>
 </body>
 </html>

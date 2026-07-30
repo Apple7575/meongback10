@@ -35,6 +35,35 @@
     background:var(--surface-2); border-radius:11px; padding:11px 13px}
   .pin-why b{color:var(--navy)}
   #pin{letter-spacing:.5em; font-weight:800; text-align:center; font-size:19px}
+  /* 장소 검색 — 노트북처럼 GPS가 없는 기기에서 위치를 직접 찾기 */
+  .place-search{display:flex; gap:7px}
+  .place-search input{flex:1; min-width:0; border:1.5px solid var(--line); border-radius:11px;
+    background:var(--surface); padding:11px 13px; font-size:16px}
+  .place-search .chip{flex:none; padding:11px 16px}
+  .place-results{display:grid; gap:6px; max-height:190px; overflow-y:auto}
+  .pr-item{text-align:left; width:100%; background:var(--surface); border:1.5px solid var(--line);
+    border-radius:11px; padding:10px 12px; display:grid; gap:2px}
+  .pr-item:hover{border-color:var(--navy)}
+  .pr-item b{font-size:13.5px; font-weight:800}
+  .pr-item span{font-size:11.5px; color:var(--ink-faint)}
+  .loc-warn{margin:0; font-size:11.5px; font-weight:700; color:var(--important); line-height:1.55}
+  /* 사진 */
+  .photo-drop{border:1.5px dashed var(--line); border-radius:12px; padding:14px;
+    display:flex; align-items:center; gap:11px; cursor:pointer; background:var(--surface-2);
+    font-size:13px; color:var(--ink-soft)}
+  .photo-drop:hover{border-color:var(--navy)}
+  .photo-drop .pv{width:58px;height:58px;border-radius:11px;flex:none;overflow:hidden;background:var(--surface);
+    display:flex;align-items:center;justify-content:center;font-size:22px;border:1px solid var(--line)}
+  .photo-drop .pv img{width:100%;height:100%;object-fit:cover}
+  /* 안내 문구 선택 */
+  .pick-list{display:grid; gap:6px}
+  .pick{display:flex; align-items:flex-start; gap:9px; cursor:pointer;
+    background:var(--surface); border:1.5px solid var(--line); border-radius:11px; padding:10px 12px}
+  .pick.on{border-color:var(--navy); background:var(--navy-soft)}
+  .pick input{width:17px;height:17px;margin-top:1px;accent-color:var(--navy);flex:none}
+  .pick span{font-size:13px; font-weight:700; color:var(--ink-soft); line-height:1.4}
+  .pick.on span{color:var(--navy)}
+  .hint-sm{font-size:11.5px; color:var(--ink-faint); line-height:1.6}
   @media (max-width:520px){ .grid2{grid-template-columns:1fr} }
 </style>
 </head>
@@ -59,6 +88,14 @@
   <div class="card c-card">
     <h2>강아지 정보</h2>
     <div class="field">
+      <span class="sec-label">사진 — 전단지에 크게 들어가요</span>
+      <label class="photo-drop">
+        <span class="pv" id="photoPreview">📷</span>
+        <span id="photoLabel">얼굴이 잘 보이는 사진이 좋아요<br><b style="color:var(--navy)">탭해서 사진 선택</b></span>
+        <input type="file" id="dogPhoto" accept="image/*" hidden>
+      </label>
+    </div>
+    <div class="field">
       <label for="dogName">이름 <span class="req">*</span></label>
       <input type="text" id="dogName" maxlength="20" placeholder="예: 콩이">
     </div>
@@ -70,8 +107,10 @@
     </div>
     <div class="field"><label for="health">건강 / 복약 주의사항</label><input type="text" id="health" maxlength="60" placeholder="예: 심장약 복용 중"></div>
     <div class="field">
-      <label for="caution">발견 시 안내 문구</label>
-      <textarea id="caution" maxlength="200" placeholder="예: 겁이 많아 쫓아가면 더 도망가요. 잡으려 하지 말고 위치와 사진만 제보해주세요."></textarea>
+      <span class="sec-label">발견 시 안내 — 해당되는 걸 골라주세요</span>
+      <div class="pick-list" id="cautionPicks"></div>
+      <textarea id="caution" maxlength="200" placeholder="더 알려줄 내용이 있으면 여기에 적어주세요 (선택)"></textarea>
+      <div class="hint-sm" id="cautionPreview"></div>
     </div>
   </div>
 
@@ -83,6 +122,11 @@
     </div>
     <div class="field">
       <span class="sec-label">마지막으로 본 위치를 지도에 찍어주세요 <span class="req">*</span></span>
+      <div class="place-search">
+        <input type="text" id="placeQ" placeholder="장소·주소로 찾기 (예: 전주역, 노원구 중계동)" autocomplete="off">
+        <button class="chip" type="button" id="placeGo">검색</button>
+      </div>
+      <div class="place-results" id="placeResults" hidden></div>
       <div class="mini-map">
         <div id="miniMapContainer"></div>
         <div class="mini-map-hint" id="miniHint">현재 위치를 불러오는 중… 지도를 탭하면 위치를 옮길 수 있어요</div>
@@ -90,14 +134,15 @@
       <div class="quick-spots" id="quickSpots">
         <button class="chip" type="button" id="useLoc">📍 내 현재 위치로</button>
       </div>
+      <p class="loc-warn" id="locWarn" hidden></p>
     </div>
   </div>
 
   <div class="card c-card">
     <h2>내 공고 관리용 PIN</h2>
     <p class="pin-why">
-      멍백홈은 <b>회원가입이 없어요.</b> 대신 공고를 만들면 나만의 <b>관리 링크</b>가 생깁니다.<br>
-      휴대폰을 바꾸거나 링크를 잃어버렸을 때 이 <b>PIN 4자리</b>로 내 공고를 다시 찾을 수 있어요.
+      멍백홈은 <b>회원가입이 없어요.</b> 이 브라우저가 자동으로 내 공고를 기억합니다.<br>
+      휴대폰을 바꿨을 때 <b>강아지 이름·나이 + 이 PIN 4자리</b>로 내 공고를 다시 찾을 수 있어요.
     </p>
     <div class="field">
       <label for="pin">PIN 숫자 4자리 <span class="req">*</span></label>
@@ -123,6 +168,57 @@ let geoCenter={lat:37.6447, lng:127.0763};
 const CENTER={x:410, y:280};   /* 프레임 중심 = 지도 중심 */
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2600);}
 
+/* ── 발견 시 안내 문구 — 자주 쓰는 문장을 골라 만든다 ── */
+const CAUTIONS=[
+  "겁이 많아 쫓아가면 더 멀리 도망갑니다. 절대 쫓지 말아주세요.",
+  "이름을 부르거나 소리내지 말고 조용히 지켜봐주세요.",
+  "잡으려 하지 말고 위치와 사진만 알려주세요.",
+  "약을 먹어야 해서 빨리 찾아야 합니다.",
+  "사람을 무서워하지만 간식에는 다가옵니다.",
+  "사람을 좋아해 따라올 수 있어요.",
+];
+(function(){
+  $("#cautionPicks").innerHTML=CAUTIONS.map((t,i)=>
+    `<label class="pick"><input type="checkbox" data-i="${i}"><span>${t}</span></label>`).join("");
+  $("#cautionPicks").querySelectorAll(".pick").forEach(l=>{
+    const cb=l.querySelector("input");
+    cb.addEventListener("change",()=>{ l.classList.toggle("on",cb.checked); updateCaution(); });
+  });
+  $("#caution").addEventListener("input",updateCaution);
+  updateCaution();
+})();
+function cautionText(){
+  const picked=[...$("#cautionPicks").querySelectorAll("input")].filter(c=>c.checked).map(c=>CAUTIONS[+c.dataset.i]);
+  const extra=$("#caution").value.trim();
+  if(extra) picked.push(extra);
+  return picked.join(" ");
+}
+function updateCaution(){
+  const t=cautionText();
+  $("#cautionPreview").textContent = t ? "전단지 문구: "+t : "고르지 않으면 기본 안내 문구가 들어가요.";
+}
+
+/* ── 강아지 사진 ── */
+let dogPhoto=null;
+function resizeTo(img,max,q){
+  const sc=Math.min(1,max/Math.max(img.width,img.height));
+  const cv=document.createElement("canvas");
+  cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
+  cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
+  return cv.toDataURL("image/jpeg",q);
+}
+$("#dogPhoto").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const img=new Image();
+  img.onload=()=>{
+    dogPhoto=resizeTo(img,900,0.85);
+    $("#photoPreview").innerHTML=`<img src="${dogPhoto}" alt="">`;
+    $("#photoLabel").innerHTML=`${f.name}<br><b style="color:var(--navy)">탭해서 다른 사진 선택</b>`;
+    URL.revokeObjectURL(img.src);
+  };
+  img.src=URL.createObjectURL(f);
+});
+
 /* 기본 시각 = 지금 */
 (function(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());$("#lostAt").value=d.toISOString().slice(0,16);})();
 
@@ -132,20 +228,60 @@ function setLoc(x,y){
   $("#formErr").classList.remove("show");
 }
 
+/* 지도 중심을 특정 위경도로 옮기고 그 지점을 유실 위치로 */
+function moveTo(lat,lng){
+  geoCenter={lat,lng};
+  MapEngine.setGeoCenter(lat,lng);
+  if(engine){ engine.setCenter(CENTER.x, CENTER.y); setLoc(CENTER.x, CENTER.y); }
+}
+
 /* 현재 위치(GPS)를 지도 중심 + 유실 위치 기본값으로 */
 function useCurrentLocation(announce){
   if(!navigator.geolocation){ if(announce) toast("이 브라우저는 위치를 지원하지 않아요"); return; }
   if(announce) toast("현재 위치를 찾는 중…");
   navigator.geolocation.getCurrentPosition(pos=>{
-    geoCenter={lat:pos.coords.latitude, lng:pos.coords.longitude};
-    MapEngine.setGeoCenter(geoCenter.lat, geoCenter.lng);
-    if(engine){ engine.setCenter(CENTER.x, CENTER.y); setLoc(CENTER.x, CENTER.y); }
-    if(announce) toast("현재 위치로 지정했어요 — 다르면 지도를 탭해 옮기세요");
+    moveTo(pos.coords.latitude, pos.coords.longitude);
+    /* 노트북·데스크톱은 GPS가 없어 와이파이·IP로 추정해 수 km씩 틀린다 → 반드시 알려준다 */
+    const acc=Math.round(pos.coords.accuracy||0);
+    if(acc>500){
+      $("#locWarn").hidden=false;
+      $("#locWarn").innerHTML=`⚠ 이 기기가 알려준 위치는 오차가 약 ${acc>=1000?(acc/1000).toFixed(1)+"km":acc+"m"}예요.
+        엉뚱한 곳이면 <b>위의 장소 검색</b>으로 찾거나 지도를 탭해 옮겨주세요.`;
+      if(announce) toast("위치가 정확하지 않을 수 있어요 — 장소 검색을 써보세요");
+    }else{
+      $("#locWarn").hidden=true;
+      if(announce) toast("현재 위치로 지정했어요 — 다르면 지도를 탭해 옮기세요");
+    }
   }, ()=>{
-    if(announce) toast("위치 권한이 거부됐어요 — 지도를 탭해 위치를 찍어주세요");
-    else $("#miniHint").textContent="지도를 탭해서 유실 위치를 찍어주세요";
+    if(announce) toast("위치 권한이 거부됐어요 — 장소 검색이나 지도 탭으로 정해주세요");
+    else $("#miniHint").textContent="장소를 검색하거나 지도를 탭해서 유실 위치를 찍어주세요";
   }, {enableHighAccuracy:true, timeout:8000, maximumAge:60000});
 }
+
+/* 장소·주소 검색 */
+async function doSearch(){
+  const q=$("#placeQ").value.trim();
+  if(!q) return;
+  const box=$("#placeResults");
+  box.hidden=false; box.innerHTML='<div style="font-size:12.5px;color:var(--ink-faint);padding:6px">찾는 중…</div>';
+  try{
+    const list=await MapEngine.searchPlace(q);
+    if(!list.length){ box.innerHTML='<div style="font-size:12.5px;color:var(--ink-faint);padding:6px">결과가 없어요 — 다르게 입력해보세요</div>'; return; }
+    box.innerHTML=list.map((p,i)=>
+      `<button class="pr-item" type="button" data-i="${i}"><b>${p.name}</b><span>${p.address||""}</span></button>`).join("");
+    box.querySelectorAll(".pr-item").forEach(b=>b.addEventListener("click",()=>{
+      const p=list[+b.dataset.i];
+      moveTo(p.lat,p.lng);
+      if(!$("#lostPlace").value) $("#lostPlace").value=p.name;
+      box.hidden=true; $("#locWarn").hidden=true;
+      toast(`${p.name} 위치로 옮겼어요 — 지도를 탭해 더 정확히 맞출 수 있어요`);
+    }));
+  }catch(e){
+    box.innerHTML='<div style="font-size:12.5px;color:var(--ink-faint);padding:6px">장소 검색을 쓸 수 없어요 — 지도를 탭해 위치를 찍어주세요</div>';
+  }
+}
+$("#placeGo").addEventListener("click",doSearch);
+$("#placeQ").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); doSearch(); }});
 
 MapEngine.create(document.getElementById("miniMapContainer"),
   {mode:"pick", onPick:p=>setLoc(p.x,p.y)}, eng=>{ engine=eng; useCurrentLocation(false); });
@@ -172,7 +308,7 @@ $("#submit").addEventListener("click",async()=>{
       body:JSON.stringify({
         dogName, breed:$("#breed").value.trim(), age:$("#age").value.trim(),
         weight:$("#weight").value.trim(), personality:$("#personality").value.trim(),
-        health:$("#health").value.trim(), caution:$("#caution").value.trim(),
+        health:$("#health").value.trim(), caution:cautionText(), photo:dogPhoto,
         lostAt:$("#lostAt").value.slice(0,16), lostPlace:$("#lostPlace").value.trim(),
         lostX:picked.x, lostY:picked.y,
         centerLat:geoCenter.lat, centerLng:geoCenter.lng, pin,

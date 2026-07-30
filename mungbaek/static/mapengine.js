@@ -114,7 +114,9 @@
     kakaoPromise = new Promise((resolve, reject) => {
       if (!CFG.KAKAO_MAP_KEY) { reject(new Error("no key")); return; }
       const s = document.createElement("script");
-      s.src = "https://dapi.kakao.com/v2/maps/sdk.js?appkey=" + CFG.KAKAO_MAP_KEY + "&autoload=false";
+      // services — 장소·주소 검색용 (노트북처럼 GPS가 없는 기기에서 위치를 직접 찾을 수 있게)
+      s.src = "https://dapi.kakao.com/v2/maps/sdk.js?appkey=" + CFG.KAKAO_MAP_KEY
+            + "&autoload=false&libraries=services";
       s.onload = () => window.kakao.maps.load(() => resolve(window.kakao));
       s.onerror = () => reject(new Error("kakao sdk load failed"));
       document.head.appendChild(s);
@@ -146,6 +148,15 @@
       backend: "svg",
       setPickable(on) { svg.style.cursor = on ? "crosshair" : ""; },
       setCenter() {},   /* SVG 도식 지도는 중심 개념이 없음 (no-op) */
+      lockPan(on) { svg.style.touchAction = on ? "none" : ""; },
+      clientToXy(clientX, clientY) {
+        const r = svg.getBoundingClientRect();
+        return {
+          x: Math.round((clientX - r.left) / r.width * W),
+          y: Math.round((clientY - r.top) / r.height * H),
+        };
+      },
+      element() { return svg; },
       setMarker(x, y, bearing) {
         const c = "var(--pending)";
         if (bearing === null || bearing === undefined) {
@@ -251,6 +262,22 @@
     return {
       backend: "kakao",
       setPickable() {},
+      /* 방향을 드래그로 정하는 동안은 지도가 따라 움직이지 않게 잠근다 */
+      lockPan(on) {
+        map.setDraggable(!on);
+        map.setZoomable(!on);
+        host.style.touchAction = on ? "none" : "";
+      },
+      /* 화면 좌표(clientX/Y) → 프레임 좌표(x,y) */
+      clientToXy(clientX, clientY) {
+        const r = host.getBoundingClientRect();
+        const proj = map.getProjection();
+        const ll = proj.coordsFromContainerPoint(
+          new kakao.maps.Point(clientX - r.left, clientY - r.top));
+        const p = latLngToXy(ll.getLat(), ll.getLng());
+        return { x: Math.round(p.x), y: Math.round(p.y) };
+      },
+      element() { return host; },
       setCenter(x, y) {
         const p = xyToLatLng(x, y);
         map.setCenter(new kakao.maps.LatLng(p.lat, p.lng));
@@ -340,6 +367,37 @@
     });
   }
 
+  /* ── 장소·주소 검색 ──
+   * "전주역", "노원구 중계동" 처럼 입력하면 후보 목록을 돌려준다.
+   * 카카오맵이 없을 때(SVG 폴백)는 사용할 수 없다.
+   */
+  function searchPlace(query) {
+    query = String(query || "").trim();
+    if (!query) return Promise.resolve([]);
+    return loadKakao().then(kakao => new Promise((resolve, reject) => {
+      const svc = kakao.maps.services;
+      if (!svc) { reject(new Error("장소 검색을 쓸 수 없어요")); return; }
+      const pack = (list) => list.slice(0, 6).map(p => ({
+        name: p.place_name || p.address_name,
+        address: p.road_address_name || p.address_name || "",
+        lat: parseFloat(p.y), lng: parseFloat(p.x),
+      }));
+      new svc.Places().keywordSearch(query, (data, status) => {
+        if (status === svc.Status.OK && data.length) { resolve(pack(data)); return; }
+        // 키워드로 못 찾으면 주소로 한 번 더
+        new svc.Geocoder().addressSearch(query, (adr, st2) => {
+          if (st2 === svc.Status.OK && adr.length) {
+            resolve(adr.slice(0, 6).map(a => ({
+              name: a.address_name,
+              address: (a.road_address && a.road_address.address_name) || "",
+              lat: parseFloat(a.y), lng: parseFloat(a.x),
+            })));
+          } else resolve([]);
+        });
+      });
+    }));
+  }
+
   /* 한 번만 읽고 끝내는 버전 (호환용) */
   function captureHeading() {
     let first = null;
@@ -349,7 +407,8 @@
 
   /* ══════════ 팩토리 ══════════ */
   window.MapEngine = {
-    xyToLatLng, latLngToXy, bearingToKo, bearingFromXY, captureHeading, watchHeading, setGeoCenter,
+    xyToLatLng, latLngToXy, bearingToKo, bearingFromXY, captureHeading, watchHeading,
+    setGeoCenter, searchPlace,
     hasCompass: !!window.DeviceOrientationEvent,
     create(container, opts, ready) {
       if (CFG.KAKAO_MAP_KEY) {

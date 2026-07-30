@@ -3,54 +3,60 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>멍백홈 · 공고 만들기·공유</title>
+<meta name="robots" content="noindex, nofollow">
+<title>멍백홈 · 전단지 만들기·공유</title>
 <link rel="stylesheet" href="/common.css">
 <style>
-  .notice-layout{display:grid; grid-template-columns:minmax(0,460px) minmax(0,1fr); gap:16px;
-    max-width:1020px; margin:0 auto; padding:16px 20px 40px; align-items:start}
-  .poster{overflow:hidden}
-  .poster-top{background:linear-gradient(160deg, var(--navy) 0%, var(--navy-deep) 100%);
-    padding:24px 24px 20px; color:var(--on-navy); text-align:center}
-  .poster-top .find{font-size:13px; font-weight:800; letter-spacing:.22em; opacity:.85}
-  .poster-top h2{margin:6px 0 0; font-size:26px; font-weight:800; letter-spacing:-.02em}
-  .poster-dog{width:110px; height:110px; margin:16px auto 0; border-radius:28px;
-    background:linear-gradient(135deg,#FBE8CF,#F3D6B0);
-    display:flex; align-items:center; justify-content:center; border:4px solid rgba(255,255,255,.35)}
-  .poster-dog svg{width:86px;height:86px}
-  .poster-body{padding:20px 24px 24px; display:grid; gap:14px}
-  .poster-rows{display:grid; gap:8px; font-size:13.5px; margin:0}
-  .poster-rows div{display:flex; justify-content:space-between; gap:12px;
-    border-bottom:1px dashed var(--line); padding-bottom:8px}
-  .poster-rows dt{color:var(--ink-faint); font-weight:600; margin:0; flex:none}
-  .poster-rows dd{margin:0; font-weight:700; text-align:right}
-  .qr-row{display:flex; gap:16px; align-items:center;
-    background:var(--surface-2); border-radius:12px; padding:14px 16px}
-  .qr-box{width:92px;height:92px;flex:none;background:#fff;border-radius:10px;padding:7px;border:1px solid var(--line)}
-  .qr-box svg,.qr-box img{width:100%;height:100%;display:block}
-  .qr-txt{font-size:12.5px; color:var(--ink-soft); line-height:1.55}
-  .qr-txt b{color:var(--navy); font-size:13.5px}
-  .qr-link{display:inline-block; margin-top:4px; font-size:12.5px; font-weight:700;
-    background:var(--surface); border:1px solid var(--line); border-radius:8px;
-    padding:4px 9px; font-variant-numeric:tabular-nums; word-break:break-all}
+  .notice-layout{display:grid; grid-template-columns:minmax(0,440px) minmax(0,1fr); gap:16px;
+    max-width:1000px; margin:0 auto; padding:16px 20px 40px; align-items:start}
+  /* 전단지 미리보기 — 저장되는 이미지와 똑같은 그림 */
+  .flyer-card{padding:14px; display:grid; gap:10px}
+  .flyer-wrap{background:var(--surface-2); border:1px solid var(--line); border-radius:12px;
+    padding:10px; display:flex; align-items:center; justify-content:center; min-height:260px}
+  .flyer-wrap img{width:100%; height:auto; display:block; border-radius:8px;
+    box-shadow:0 4px 18px rgba(20,44,78,.14)}
+  .flyer-note{margin:0; font-size:11.5px; color:var(--ink-faint); text-align:center; line-height:1.55}
+  .flyer-loading{font-size:13px; color:var(--ink-faint); padding:40px 0; text-align:center}
+
   .share-panel{display:flex; flex-direction:column; gap:14px}
   .share-card{padding:18px 20px}
   .share-card h3{margin:0 0 4px; font-size:15px; font-weight:800; color:var(--navy)}
-  .share-card p.sub{margin:0 0 14px; font-size:13px; color:var(--ink-soft)}
-  .share-grid{display:grid; grid-template-columns:1fr 1fr; gap:9px}
-  .share-item{display:flex; align-items:center; gap:10px;
-    border:1.5px solid var(--line); border-radius:12px; padding:12px 14px;
-    background:var(--surface); font-size:13.5px; font-weight:700; text-align:left; text-decoration:none; color:inherit}
-  .share-item:hover{border-color:var(--navy)}
-  .share-item .si{width:34px;height:34px;border-radius:9px;flex:none;
-    display:flex;align-items:center;justify-content:center;font-size:16px;background:var(--surface-2)}
-  .share-item small{display:block;font-size:11px;color:var(--ink-faint);font-weight:600}
+  .share-card p.sub{margin:0 0 14px; font-size:13px; color:var(--ink-soft); line-height:1.55}
+  .acts{display:grid; gap:9px}
+  .act{display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    border:1.5px solid var(--line); border-radius:12px; padding:14px;
+    background:var(--surface); font-size:14px; font-weight:800; color:inherit; text-decoration:none}
+  .act:hover{border-color:var(--navy)}
+  .act.primary{background:var(--navy); color:var(--on-navy); border-color:var(--navy)}
+  .act .ai{width:36px;height:36px;border-radius:10px;flex:none;
+    display:flex;align-items:center;justify-content:center;background:var(--surface-2)}
+  .act.primary .ai{background:rgba(255,255,255,.16)}
+  .act .ai svg{width:19px;height:19px}
+  .act small{display:block;font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-top:1px}
+  .act.primary small{color:rgba(255,255,255,.75)}
+  .link-row{font-size:12px; font-weight:700; word-break:break-all; line-height:1.5;
+    background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:9px 11px}
+  .preview-link{font-size:12.5px; text-align:center}
+  .preview-link a{color:var(--navy); font-weight:800; text-decoration:none}
+
+  .owner-card{padding:16px; display:grid; gap:9px; border-left:4px solid var(--important)}
+  .owner-card h3{margin:0; font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px}
+  .only-me{font-size:10.5px; font-weight:800; color:var(--important);
+    background:var(--important-bg); border-radius:99px; padding:3px 9px}
+  .owner-card .sub{margin:0; font-size:12.5px; color:var(--ink-soft); line-height:1.55}
+  .owner-card .sub b{color:var(--navy)}
+  .owner-actions{display:flex; gap:8px; flex-wrap:wrap}
+  .owner-actions .navy-btn,.owner-actions .ghost-btn{flex:1; min-width:130px; justify-content:center}
+  .owner-tip{margin:0; font-size:11.5px; color:var(--ink-faint); line-height:1.6}
+  .owner-tip b{color:var(--ink-soft)}
+  .owner-tip a{color:var(--navy); font-weight:800; text-decoration:none; white-space:nowrap}
+
   .tip-card{padding:15px 18px; border-left:4px solid var(--trust)}
   .tip-card h4{margin:0 0 6px; font-size:13px; font-weight:800; color:var(--trust)}
   .tip-card ul{margin:0; padding-left:18px; font-size:12.5px; color:var(--ink-soft); display:grid; gap:4px}
   @media (max-width: 960px){
     .notice-layout{grid-template-columns:1fr; padding:12px 12px 40px}
   }
-  @media (max-width: 520px){ .share-grid{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -64,7 +70,7 @@
     </svg>
     멍백홈
   </a>
-  <div class="page-name"><b>공고 만들기 · 공유</b> · 더 많이 뿌릴수록 제보가 빨라져요</div>
+  <div class="page-name"><b>전단지 만들기 · 공유</b> · 더 많이 뿌릴수록 제보가 빨라져요</div>
   <div class="header-right">
     <a class="navy-btn" href="/">유실목격지도로</a>
   </div>
@@ -72,74 +78,47 @@
 
 <div class="notice-layout">
 
-  <div class="card poster">
-    <div class="poster-top">
-      <div class="find">MISSING · 강아지를 찾습니다</div>
-      <h2 id="posterTitle">…</h2>
-      <div class="poster-dog" aria-hidden="true">
-        <svg viewBox="0 0 64 64">
-          <ellipse cx="32" cy="38" rx="20" ry="18" fill="#FFFDF8"/>
-          <ellipse cx="14" cy="26" rx="8" ry="12" fill="#F5EEDF" transform="rotate(-18 14 26)"/>
-          <ellipse cx="50" cy="26" rx="8" ry="12" fill="#F5EEDF" transform="rotate(18 50 26)"/>
-          <circle cx="32" cy="30" r="15" fill="#FFFDF8"/>
-          <circle cx="26.5" cy="28" r="2.1" fill="#3A3A3A"/><circle cx="37.5" cy="28" r="2.1" fill="#3A3A3A"/>
-          <ellipse cx="32" cy="34.5" rx="3" ry="2.4" fill="#3A3A3A"/>
-          <path d="M32 37 Q30 40 27.5 39.5 M32 37 Q34 40 36.5 39.5" stroke="#3A3A3A" stroke-width="1.4" fill="none" stroke-linecap="round"/>
-          <path d="M24 20 Q32 14 40 20" stroke="#F0E7D4" stroke-width="4" fill="none" stroke-linecap="round"/>
-        </svg>
-      </div>
+  <div class="card flyer-card">
+    <div class="flyer-wrap" id="flyerWrap">
+      <div class="flyer-loading" id="flyerLoading">전단지를 만드는 중…</div>
     </div>
-    <div class="poster-body">
-      <dl class="poster-rows" id="posterRows"></dl>
-      <div class="caution" id="posterCaution"></div>
-      <div class="qr-row">
-        <div class="qr-box" id="qrBox" aria-label="제보 페이지 QR 코드"></div>
-        <div class="qr-txt">
-          <b>QR을 찍으면 바로 제보 페이지</b><br>
-          앱 설치 없이 30초면 제보할 수 있어요.
-          <span class="qr-link" id="reportUrl"></span>
-        </div>
-      </div>
-    </div>
+    <p class="flyer-note">이 그림이 그대로 저장돼요 · QR을 찍으면 앱 설치 없이 바로 제보 페이지가 열려요</p>
   </div>
 
   <div class="share-panel">
     <div class="card share-card">
-      <h3>공고 공유하기</h3>
-      <p class="sub">더 많은 곳에 뿌릴수록 목격 제보가 빨리 모여요.</p>
-      <div class="share-grid">
-        <button class="share-item" data-share="link" type="button">
-          <span class="si">🔗</span><span>링크 복사<small>어디든 붙여넣기</small></span>
+      <h3>이렇게 뿌려주세요</h3>
+      <p class="sub">전단지 이미지를 저장해 단톡방·동네 커뮤니티에 보내고, 인쇄해서 전봇대·상가에 붙이세요.</p>
+      <div class="acts">
+        <button class="act primary" type="button" id="saveFlyer">
+          <span class="ai" id="iconSave"></span>
+          <span>전단지 이미지 저장<small>사진첩에 저장 → 카톡·당근·인스타로 바로 전송</small></span>
         </button>
-        <button class="share-item" data-share="kakao" type="button">
-          <span class="si">💬</span><span>카카오톡<small>가족·이웃 단톡방</small></span>
+        <button class="act" type="button" id="printFlyer">
+          <span class="ai" id="iconPrint"></span>
+          <span>전단지 인쇄<small>A4로 출력해 전봇대·상가에 부착</small></span>
         </button>
-        <button class="share-item" data-share="daangn" type="button">
-          <span class="si">🥕</span><span>당근 동네생활<small>우리 동네 이웃에게</small></span>
+        <button class="act" type="button" id="copyLink">
+          <span class="ai" id="iconLink"></span>
+          <span>제보 링크 복사<small>문자·메시지로 링크만 보낼 때</small></span>
         </button>
-        <button class="share-item" data-share="insta" type="button">
-          <span class="si">📸</span><span>인스타 스토리<small>이미지로 내보내기</small></span>
-        </button>
-        <button class="share-item" data-share="print" type="button">
-          <span class="si">🖨️</span><span>전단지 인쇄<small>QR 포함 A4 포스터</small></span>
-        </button>
-        <a class="share-item" id="previewLink" href="/r/kong-i">
-          <span class="si">👀</span><span>제보 페이지 열기<small>목격자가 보는 화면</small></span>
-        </a>
       </div>
+      <div class="link-row" id="reportUrl" style="margin-top:12px"></div>
+      <p class="preview-link" style="margin:10px 0 0"><a id="previewLink" href="#">목격자가 보는 제보 화면 열어보기 →</a></p>
     </div>
+
     <!-- 보호자 전용 — 절대 공유하면 안 되는 링크 -->
     <div class="card owner-card" id="ownerCard">
       <h3>🔑 내 관리 링크 <span class="only-me">나만 보관</span></h3>
       <p class="sub">이 링크로 들어가야 제보를 확인하고 신뢰·숨김을 정할 수 있어요.
         <b>목격자에게는 위의 제보 링크를 보내주세요.</b></p>
-      <div class="owner-url" id="manageUrl"></div>
+      <div class="link-row" id="manageUrl"></div>
       <div class="owner-actions">
         <button class="navy-btn" type="button" id="copyManage">관리 링크 복사</button>
         <a class="ghost-btn" id="goManage" href="/">관리 화면 열기</a>
       </div>
       <p class="owner-tip">
-        휴대폰을 바꾸거나 링크를 잃어버렸다면 <b>공고 주소 + PIN 4자리</b>로 다시 찾을 수 있어요.
+        휴대폰을 바꾸거나 링크를 잃어버렸다면 <b>강아지 이름·나이 + PIN 4자리</b>로 다시 찾을 수 있어요.
         <a href="/find">내 공고 찾기 →</a>
       </p>
     </div>
@@ -148,7 +127,7 @@
       <h4>공유 팁</h4>
       <ul>
         <li>전단지는 마지막 목격 지점 반경 1km 안 전봇대·상가에 붙이는 게 효과적이에요.</li>
-        <li>당근 동네생활 글에는 QR 이미지와 함께 "잡지 말고 제보만"을 꼭 적어주세요.</li>
+        <li>동네 커뮤니티 글에는 전단지 이미지와 함께 "잡지 말고 제보만"을 꼭 적어주세요.</li>
         <li>제보가 들어오면 유실목격지도에 실시간으로 모입니다.</li>
       </ul>
     </div>
@@ -157,86 +136,219 @@
 
 <div class="toast" id="toast" role="status"></div>
 
-<style>
-  .owner-card{padding:16px; display:grid; gap:9px; border-left:4px solid var(--important)}
-  .owner-card h3{margin:0; font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px}
-  .only-me{font-size:10.5px; font-weight:800; color:var(--important);
-    background:var(--important-bg); border-radius:99px; padding:3px 9px}
-  .owner-card .sub{margin:0; font-size:12.5px; color:var(--ink-soft); line-height:1.55}
-  .owner-card .sub b{color:var(--navy)}
-  .owner-url{font-size:12px; font-weight:700; word-break:break-all; line-height:1.5;
-    background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:10px 12px}
-  .owner-actions{display:flex; gap:8px; flex-wrap:wrap}
-  .owner-actions .navy-btn,.owner-actions .ghost-btn{flex:1; min-width:130px; justify-content:center}
-  .owner-tip{margin:0; font-size:11.5px; color:var(--ink-faint); line-height:1.6}
-  .owner-tip b{color:var(--ink-soft)}
-  .owner-tip a{color:var(--navy); font-weight:800; text-decoration:none; white-space:nowrap}
-</style>
-
 <script src="/session.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 function toast(msg){
   const t=$("#toast"); t.textContent=msg; t.classList.add("show");
-  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2400);
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2600);
 }
+const icon=(p,sw=2.1)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+$("#iconSave").innerHTML=icon('<path d="M12 4v11"/><path d="m8 11.5 4 4 4-4"/><path d="M5 19h14"/>');
+$("#iconPrint").innerHTML=icon('<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="2"/><path d="M7 16h10v4H7z"/>');
+$("#iconLink").innerHTML=icon('<path d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1 1"/><path d="M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1-1"/>');
 
-/* 어떤 공고를 보여줄지: ?slug= → 지금 보고 있는 내 공고 → 데모 */
-const askedSlug = new URLSearchParams(location.search).get("slug");
-const slug = askedSlug || MB.getActiveSlug() || "demo";
-let reportUrl = MB.reportUrl(slug);
+/* 어떤 공고인지: ?slug= → 지금 보고 있는 내 공고 → 데모 */
+const askedSlug=new URLSearchParams(location.search).get("slug");
+const slug=askedSlug || MB.getActiveSlug() || "demo";
+let reportUrl=MB.reportUrl(slug);
+let notice=null, flyerUrl=null;
 
-/* 내 관리 링크 — 내가 가진 공고일 때만 보여준다 */
+/* 내 관리 링크 — 내가 가진 공고일 때만 */
 (function(){
-  const mine = MB.find(slug);
+  const mine=MB.find(slug);
   if(!mine){ $("#ownerCard").style.display="none"; return; }
-  const mUrl = MB.manageUrl(mine.ownerKey);
-  $("#manageUrl").textContent = mUrl.replace(/^https?:\/\//,"");
-  $("#goManage").href = "/m/" + encodeURIComponent(mine.ownerKey);
-  $("#copyManage").addEventListener("click", async ()=>{
+  const mUrl=MB.manageUrl(mine.ownerKey);
+  $("#manageUrl").textContent=mUrl.replace(/^https?:\/\//,"");
+  $("#goManage").href="/m/"+encodeURIComponent(mine.ownerKey);
+  $("#copyManage").addEventListener("click",async()=>{
     toast(await MB.copy(mUrl) ? "관리 링크가 복사됐어요 — 나에게만 보관하세요" : mUrl);
   });
 })();
 
+/* ── 전단지 그리기 ──────────────────────────
+   화면에 보이는 그림이 곧 저장·인쇄되는 이미지. 캔버스로 직접 그린다. */
+const W=1000, H=1414;                     // A4 비율
+const NAVY="#1E3A5F", INK="#1B2430", SOFT="#5B6B7F", LINE="#DDE3EA", WARN="#C2410C";
+
+function loadImg(src){
+  return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; });
+}
+async function qrImage(text){
+  const svg=await (await fetch("/api/qr?data="+encodeURIComponent(text))).text();
+  const url=URL.createObjectURL(new Blob([svg],{type:"image/svg+xml"}));
+  try{ return await loadImg(url); } finally{ setTimeout(()=>URL.revokeObjectURL(url),1000); }
+}
+/* 글자를 폭에 맞춰 여러 줄로 나눈다 */
+function wrap(ctx,text,maxW){
+  const out=[]; let line="";
+  for(const ch of String(text||"")){
+    if(ch==="\n"){ out.push(line); line=""; continue; }
+    if(ctx.measureText(line+ch).width>maxW && line){ out.push(line); line=ch; }
+    else line+=ch;
+  }
+  if(line) out.push(line);
+  return out;
+}
+const F=(w,s)=>`${w} ${s}px "Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif`;
+
+async function drawFlyer(n){
+  const cv=document.createElement("canvas");
+  cv.width=W; cv.height=H;
+  const c=cv.getContext("2d");
+  c.fillStyle="#FFFFFF"; c.fillRect(0,0,W,H);
+
+  /* 머리 */
+  c.fillStyle=NAVY; c.fillRect(0,0,W,190);
+  c.textAlign="center"; c.fillStyle="#FFFFFF";
+  c.font=F(700,30); c.letterSpacing="10px";
+  c.fillText("MISSING DOG",W/2,62);
+  c.letterSpacing="0px";
+  c.font=F(800,76); c.fillText("강아지를 찾습니다",W/2,148);
+
+  /* 사진 (없으면 안내) */
+  const pad=60, photoTop=228, photoH=430;
+  if(n.photo){
+    try{
+      const img=await loadImg(n.photo);
+      const bw=W-pad*2, bh=photoH;
+      const sc=Math.max(bw/img.width, bh/img.height);
+      const dw=img.width*sc, dh=img.height*sc;
+      c.save();
+      c.beginPath(); c.roundRect(pad,photoTop,bw,bh,18); c.clip();
+      c.drawImage(img, pad+(bw-dw)/2, photoTop+(bh-dh)/2, dw, dh);
+      c.restore();
+      c.strokeStyle=LINE; c.lineWidth=2;
+      c.beginPath(); c.roundRect(pad,photoTop,bw,bh,18); c.stroke();
+    }catch(e){ n.photo=null; }
+  }
+  if(!n.photo){
+    c.fillStyle="#F5EEE2";
+    c.beginPath(); c.roundRect(pad,photoTop,W-pad*2,photoH,18); c.fill();
+    c.fillStyle="#B9A98F"; c.font=F(700,30); c.textAlign="center";
+    c.fillText("사진이 없어요 — 공고를 수정해 사진을 넣으면",W/2,photoTop+photoH/2-12);
+    c.fillText("전단지 효과가 훨씬 좋아집니다",W/2,photoTop+photoH/2+32);
+  }
+
+  /* 이름 줄 */
+  let y=photoTop+photoH+72;
+  c.textAlign="center"; c.fillStyle=INK; c.font=F(800,62);
+  c.fillText(n.dogName,W/2,y);
+  y+=44;
+  c.fillStyle=SOFT; c.font=F(700,30);
+  c.fillText(`${n.breed} · ${n.age} · ${n.weight}`,W/2,y);
+
+  /* 정보 표 */
+  y+=54;
+  const rows=[
+    ["잃어버린 곳", n.lostPlace],
+    ["잃어버린 때", n.lostAt.replace("T"," ")],
+    ["특징", `${n.personality} · ${n.health}`],
+  ];
+  c.textAlign="left"; c.font=F(700,29);
+  for(const [k,v] of rows){
+    c.strokeStyle=LINE; c.lineWidth=2;
+    c.beginPath(); c.moveTo(pad,y-34); c.lineTo(W-pad,y-34); c.stroke();
+    c.fillStyle=SOFT; c.fillText(k,pad,y);
+    c.fillStyle=INK; c.textAlign="right";
+    const lines=wrap(c,v,W-pad*2-220);
+    lines.slice(0,2).forEach((ln,i)=>c.fillText(ln,W-pad,y+i*36));
+    y+=Math.min(lines.length,2)*36+22;
+    c.textAlign="left";
+  }
+
+  /* 발견 시 안내 */
+  const caution=n.caution||"";
+  if(caution){
+    c.font=F(700,28);
+    const lines=wrap(c,caution,W-pad*2-40).slice(0,4);
+    const boxH=lines.length*38+38;
+    c.fillStyle="#FFF4EA";
+    c.beginPath(); c.roundRect(pad,y-10,W-pad*2,boxH,14); c.fill();
+    c.fillStyle=WARN; c.font=F(800,26);
+    c.fillText("발견 시 꼭 읽어주세요",pad+20,y+22);
+    c.fillStyle="#7C3A12"; c.font=F(700,27);
+    lines.forEach((ln,i)=>c.fillText(ln,pad+20,y+58+i*36));
+    y+=boxH+26;
+  }
+
+  /* QR — 아래 고정 */
+  const qy=H-286;
+  c.fillStyle="#F4F6F9";
+  c.beginPath(); c.roundRect(pad,qy,W-pad*2,226,16); c.fill();
+  let hasQr=false;
+  try{
+    const qr=await qrImage(reportUrl);
+    c.fillStyle="#fff"; c.beginPath(); c.roundRect(pad+22,qy+23,180,180,10); c.fill();
+    c.drawImage(qr,pad+32,qy+33,160,160);
+    hasQr=true;
+  }catch(e){ /* QR을 못 만들어도 주소를 크게 넣어 전단지가 쓸 수 있게 한다 */ }
+  const tx=hasQr ? pad+228 : pad+28;
+  c.textAlign="left"; c.fillStyle=NAVY; c.font=F(800,34);
+  c.fillText("보셨다면 여기로 알려주세요",tx,qy+66);
+  c.fillStyle=SOFT; c.font=F(700,26);
+  c.fillText(hasQr ? "QR을 찍으면 앱 설치 없이 30초면 제보 끝"
+                   : "아래 주소를 열면 앱 설치 없이 30초면 제보 끝",tx,qy+108);
+  c.fillStyle=INK; c.font=F(800,hasQr?24:30);
+  wrap(c,reportUrl.replace(/^https?:\/\//,""),W-pad*2-(hasQr?250:60))
+    .slice(0,2).forEach((ln,i)=>c.fillText(ln,tx,qy+152+i*(hasQr?32:38)));
+  c.textAlign="center"; c.fillStyle="#9AA7B6"; c.font=F(700,22);
+  c.fillText("멍백홈 · 제보는 한곳에, 수색은 더 똑똑하게",W/2,H-26);
+
+  return cv;
+}
+
+async function buildFlyer(){
+  try{
+    const cv=await drawFlyer(notice);
+    flyerUrl=cv.toDataURL("image/png");
+    $("#flyerWrap").innerHTML=`<img id="flyerImg" src="${flyerUrl}" alt="${notice.dogName} 전단지">`;
+  }catch(e){
+    $("#flyerWrap").innerHTML='<div class="flyer-loading">전단지를 만들지 못했어요 — 새로고침해 주세요</div>';
+  }
+}
+
+/* ── 불러오기 ── */
 fetch("/api/notice?slug="+encodeURIComponent(slug)).then(r=>{
   if(!r.ok) throw new Error("not found"); return r.json();
 }).then(n=>{
-  reportUrl = MB.reportUrl(n.slug);
-  $("#previewLink").href = "/r/" + n.slug;
-  $("#posterTitle").textContent=`${n.dogName}를 봤다면 알려주세요`;
-  const lostT=n.lostAt.slice(11,16);
-  $("#posterRows").innerHTML=`
-    <div><dt>이름 / 견종</dt><dd>${n.dogName} · ${n.breed}</dd></div>
-    <div><dt>나이 / 체중</dt><dd>${n.age} · ${n.weight}</dd></div>
-    <div><dt>잃어버린 곳</dt><dd>${n.lostPlace}</dd></div>
-    <div><dt>잃어버린 시각</dt><dd>오늘 ${lostT}</dd></div>
-    <div><dt>특징</dt><dd>${n.personality} · ${n.health}</dd></div>`;
-  $("#posterCaution").innerHTML=`<b>꼭 읽어주세요</b> · ${n.caution}`;
+  notice=n;
+  reportUrl=MB.reportUrl(n.slug);
+  document.title=`멍백홈 · ${n.dogName} 전단지`;
+  $("#previewLink").href="/r/"+n.slug;
   $("#reportUrl").textContent=reportUrl.replace(/^https?:\/\//,"");
+  buildFlyer();
+}).catch(()=>{
+  $("#flyerWrap").innerHTML='<div class="flyer-loading">공고를 불러오지 못했어요 — 주소를 확인해주세요</div>';
+  toast("공고를 불러오지 못했어요");
+});
 
-  /* 실제 QR (서버 생성, qrcode 패키지 없으면 안내) */
-  fetch("/api/qr?data="+encodeURIComponent(reportUrl))
-    .then(r=>{ if(!r.ok) throw new Error(); return r.text(); })
-    .then(svg=>{ $("#qrBox").innerHTML=svg; })
-    .catch(()=>{ $("#qrBox").innerHTML=
-      '<div style="font-size:10px;color:#888;text-align:center;padding-top:30px">QR 생성 불가<br>qrcode 설치 필요</div>'; });
-}).catch(()=>toast("공고를 불러오지 못했어요 — 주소를 확인해주세요"));
+/* ── 저장 / 인쇄 / 링크 복사 ── */
+$("#saveFlyer").addEventListener("click",()=>{
+  if(!flyerUrl){ toast("전단지를 아직 만들고 있어요"); return; }
+  const a=document.createElement("a");
+  a.href=flyerUrl;
+  a.download=`멍백홈_${notice.dogName}_전단지.png`;
+  document.body.appendChild(a); a.click(); a.remove();
+  toast("전단지를 저장했어요 — 단톡방·커뮤니티에 보내주세요");
+});
 
-document.querySelectorAll("button.share-item").forEach(b=>{
-  b.addEventListener("click",async()=>{
-    const k=b.dataset.share;
-    if(k==="link"){
-      toast(await MB.copy(reportUrl) ? "제보 링크가 복사됐어요 — 목격자에게 보내세요" : reportUrl);
-      return;
-    }
-    const msgs={
-      kakao:"카카오톡 공유는 카카오 JavaScript SDK 연동 후 활성화돼요 (데모)",
-      daangn:"당근 동네생활 글쓰기로 이동해요 (데모)",
-      insta:"인스타 스토리용 이미지를 저장했어요 (데모)",
-      print:"전단지 PDF 내보내기는 다음 스프린트 범위예요 (데모)",
-    };
-    toast(msgs[k]||"공유 (데모)");
-  });
+$("#printFlyer").addEventListener("click",()=>{
+  if(!flyerUrl){ toast("전단지를 아직 만들고 있어요"); return; }
+  const w=window.open("","_blank");
+  if(!w){ toast("팝업이 막혔어요 — 이미지를 저장해 인쇄해주세요"); return; }
+  w.document.write(`<!DOCTYPE html><html><head><title>${notice.dogName} 전단지</title>
+    <style>@page{size:A4;margin:0}
+    html,body{margin:0;padding:0}
+    img{width:100%;height:auto;display:block}
+    @media print{body{margin:0}}</style></head>
+    <body><img src="${flyerUrl}" onload="window.focus();window.print();"></body></html>`);
+  w.document.close();
+});
+
+$("#copyLink").addEventListener("click",async()=>{
+  toast(await MB.copy(reportUrl) ? "제보 링크가 복사됐어요 — 목격자에게 보내세요" : reportUrl);
 });
 </script>
 </body>

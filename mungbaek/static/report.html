@@ -75,10 +75,9 @@
   .photo-drop .pv{width:46px;height:46px;border-radius:9px;flex:none;overflow:hidden;background:var(--surface);
     display:flex;align-items:center;justify-content:center;font-size:19px;border:1px solid var(--line)}
   .photo-drop .pv img{width:100%;height:100%;object-fit:cover}
-  .check-row{display:flex; gap:10px; align-items:flex-start;
-    background:var(--surface-2); border-radius:11px; padding:11px 13px; font-size:13px; cursor:pointer}
-  .check-row input{width:17px;height:17px;margin-top:2px;accent-color:var(--navy)}
-  .check-row small{display:block;color:var(--ink-faint);font-size:11.5px;margin-top:1px}
+  .phone-why{font-size:11.5px; color:var(--ink-soft); line-height:1.6;
+    background:var(--surface-2); border-radius:10px; padding:9px 11px}
+  .phone-why b{color:var(--navy)}
   .submit-btn{width:100%; padding:15px; border-radius:13px;
     background:var(--navy); color:var(--on-navy); font-size:15.5px; font-weight:800}
   .submit-btn:hover{filter:brightness(1.08)}
@@ -212,11 +211,14 @@
       </label>
     </div>
 
-    <label class="check-row">
-      <input type="checkbox" id="wContact" checked>
-      <span>보호자가 추가로 물어볼 수 있게 <b>연락을 허용</b>할게요
-        <small>연락처는 보호자에게만 공개되고, 수색 종료 시 자동 삭제돼요.</small></span>
-    </label>
+    <div class="field">
+      <label for="wPhone">연락처 (선택)</label>
+      <input type="tel" id="wPhone" inputmode="tel" maxlength="20" placeholder="010-1234-5678" autocomplete="tel">
+      <div class="phone-why">
+        번호를 남기면 <b>보호자가 직접 전화·문자로</b> 더 물어볼 수 있어요 (예: 정확한 위치, 강아지 상태).<br>
+        번호는 <b>이 공고의 보호자만</b> 볼 수 있어요. 남기지 않아도 제보는 정상 접수돼요.
+      </div>
+    </div>
 
     <p class="form-err" id="formErr">지도에서 목격 위치를 탭해주세요.</p>
     <button class="submit-btn" id="wSubmit" type="button">제보 보내기</button>
@@ -288,9 +290,7 @@ function renderMarker(){
 function setLocation(x,y){
   picked={x,y};
   renderMarker();
-  $("#miniHint").textContent = dirMode==="map"
-    ? "이제 강아지가 간 쪽을 한 번 더 탭하세요"
-    : "목격 위치가 표시됐어요 — 다시 탭하면 옮길 수 있어요";
+  $("#miniHint").textContent="목격 위치가 표시됐어요 — 다시 탭하면 옮길 수 있어요";
   $("#formErr").classList.remove("show");
 }
 
@@ -311,8 +311,8 @@ function updateDirResult(){
 
 /* 지도 탭 통합 처리 */
 function onTap(p){
-  if(picked && dirPicking) setBearingFromTap(p.x, p.y);
-  else setLocation(p.x, p.y);
+  if(dragOn) return;        // 방향 드래그 중에는 위치가 바뀌지 않게
+  setLocation(p.x, p.y);
 }
 /* 지도 생성은 공고(중심 좌표)를 받은 뒤 위 fetch에서 수행 */
 
@@ -330,6 +330,57 @@ $("#useLoc").addEventListener("click",()=>{
   }, ()=>toast("위치 권한이 거부됐어요 — 지도를 탭해 위치를 찍어주세요"),
   {enableHighAccuracy:true, timeout:8000, maximumAge:60000});
 });
+
+/* ── 지도에서 방향 드래그 ──
+   목격 위치에서 강아지가 간 쪽으로 손가락을 끌면 화살표가 실시간으로 따라온다.
+   손을 떼도 잠기지 않고, 다시 끌면 언제든 고쳐진다. */
+let dragOn=false, dragging=false, dragHandlers=null;
+
+function startDrag(){
+  closeCompass();
+  if(dragOn){ $("#dirResult").textContent="지도에서 강아지가 간 쪽으로 끌어주세요 (다시 끌면 고쳐져요)"; return; }
+  if(!engine || !engine.element){ toast("지도를 아직 불러오는 중이에요"); return; }
+  dragOn=true;
+  const el=engine.element();
+  engine.lockPan && engine.lockPan(true);
+  el.style.cursor="crosshair";
+  $("#miniHint").textContent="목격 위치에서 강아지가 간 쪽으로 손가락을 끌어주세요";
+  $("#dirResult").textContent="지도에서 강아지가 간 쪽으로 끌어주세요";
+  document.querySelector(".mini-map").scrollIntoView({behavior:"smooth",block:"center"});
+
+  const update=(e)=>{
+    const t=e.touches ? e.touches[0] : e;
+    const p=engine.clientToXy(t.clientX, t.clientY);
+    if(p.x===picked.x && p.y===picked.y) return;
+    bearing=MapEngine.bearingFromXY(picked.x, picked.y, p.x, p.y);
+    renderMarker(); updateDirResult();
+  };
+  const down=(e)=>{ dragging=true; update(e); e.preventDefault(); };
+  const move=(e)=>{ if(dragging){ update(e); e.preventDefault(); } };
+  const up=()=>{ if(dragging){ dragging=false; toast("방향을 정했어요 — 다시 끌면 고칠 수 있어요"); } };
+
+  dragHandlers={el,down,move,up};
+  el.addEventListener("pointerdown",down);
+  el.addEventListener("pointermove",move);
+  window.addEventListener("pointerup",up);
+  el.addEventListener("touchstart",down,{passive:false});
+  el.addEventListener("touchmove",move,{passive:false});
+  window.addEventListener("touchend",up);
+}
+
+function stopDrag(){
+  if(!dragOn || !dragHandlers) { dragOn=false; return; }
+  const {el,down,move,up}=dragHandlers;
+  el.removeEventListener("pointerdown",down);
+  el.removeEventListener("pointermove",move);
+  window.removeEventListener("pointerup",up);
+  el.removeEventListener("touchstart",down);
+  el.removeEventListener("touchmove",move);
+  window.removeEventListener("touchend",up);
+  el.style.cursor="";
+  engine && engine.lockPan && engine.lockPan(false);
+  dragOn=false; dragging=false; dragHandlers=null;
+}
 
 /* ── 실시간 나침반 ──
    폰을 돌리면 바늘과 지도 위 화살표가 함께 돌고, 버튼을 눌러 그 방향으로 확정한다. */
@@ -359,9 +410,9 @@ async function startCompass(){
     });
   }catch(e){
     closeCompass();
-    selDirBtn("map"); bearing=null; dirPicking=true;
-    $("#dirResult").textContent=e.message+" — 대신 지도에서 방향을 탭해주세요";
-    document.querySelector(".mini-map").scrollIntoView({behavior:"smooth",block:"center"});
+    selDirBtn("map"); bearing=null;
+    startDrag();     // 나침반이 안 되면 드래그 방식으로 자연스럽게 넘긴다
+    $("#dirResult").textContent=e.message+" — 대신 지도에서 방향을 끌어주세요";
   }
 }
 
@@ -393,15 +444,14 @@ document.querySelectorAll(".dir-btn").forEach(b=>{
   b.addEventListener("click",async()=>{
     const mode=b.dataset.dir;
     if(mode!=="compass") closeCompass();
+    if(mode!=="map") stopDrag();
     if(mode==="none"){
       selDirBtn("none"); bearing=null; dirPicking=false; renderMarker(); updateDirResult();
       $("#miniHint").textContent="목격 위치가 표시됐어요 — 다시 탭하면 옮길 수 있어요";
     }else if(mode==="map"){
       selDirBtn("map");
       if(!picked){ toast("먼저 지도에서 목격 위치를 탭해주세요"); return; }
-      dirPicking=true;
-      $("#miniHint").textContent="강아지가 간 쪽을 지도에서 한 번 더 탭하세요";
-      document.querySelector(".mini-map").scrollIntoView({behavior:"smooth",block:"center"});
+      startDrag();
     }else if(mode==="compass"){
       selDirBtn("compass");
       if(!picked){ selDirBtn(dirMode==="compass"?"none":dirMode); toast("먼저 지도에서 목격 위치를 탭해주세요"); return; }
@@ -435,7 +485,7 @@ $("#wPhoto").addEventListener("change",e=>{
 $("#wSubmit").addEventListener("click",async()=>{
   if(!picked){ $("#formErr").classList.add("show");
     document.querySelector(".mini-map").scrollIntoView({behavior:"smooth",block:"center"}); return; }
-  closeCompass();
+  closeCompass(); stopDrag();
   const btn=$("#wSubmit"); btn.disabled=true; btn.textContent="보내는 중…";
   try{
     const res=await fetch("/api/reports",{method:"POST",headers:{"Content-Type":"application/json"},
@@ -446,7 +496,7 @@ $("#wSubmit").addEventListener("click",async()=>{
         place:$("#wPlace").value.trim(),
         dir: bearing===null ? "방향 확인 안 됨" : MapEngine.bearingToKo(bearing),
         memo:$("#wMemo").value.trim(),
-        contact:$("#wContact").checked,
+        phone:$("#wPhone").value.trim(),
         photo:photoData, thumb:thumbData, source:"witness",
       })});
     if(!res.ok) throw new Error(await res.text());
@@ -460,12 +510,12 @@ $("#wSubmit").addEventListener("click",async()=>{
 
 /* 초기화 */
 $("#newReport").addEventListener("click",()=>{
-  closeCompass(); liveBearing=null;
+  closeCompass(); stopDrag(); liveBearing=null;
   picked=null; bearing=null; dirMode="none"; dirPicking=false; photoData=null; thumbData=null;
   engine&&engine.clearMarker();
   selDirBtn("none"); updateDirResult();
   $("#miniHint").textContent="지도를 탭하면 목격 위치가 표시돼요";
-  $("#wPlace").value=""; $("#wMemo").value=""; $("#wPhoto").value="";
+  $("#wPlace").value=""; $("#wMemo").value=""; $("#wPhoto").value=""; $("#wPhone").value="";
   $("#photoPreview").textContent="📷";
   $("#photoLabel").innerHTML=`멀리서 찍은 사진도 큰 도움이 돼요<br><b style="color:var(--navy)">탭해서 사진 선택</b>`;
   document.querySelectorAll("#quickSpots .chip").forEach(o=>o.classList.remove("on"));

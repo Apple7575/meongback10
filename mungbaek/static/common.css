@@ -163,6 +163,7 @@ svg.mb-map{display:block; width:100%; height:auto}
   .btn-lbl{display:none}
   .ghost-btn.icon-only{padding:8px 10px; font-size:15px; line-height:1; gap:0}
   .live-chip .dd-status{display:none}
+  .live-chip .dd-h{display:none}      /* 좁은 화면에선 시간은 생략 */
   .live-chip{font-size:11px; padding:4px 8px}
   .navy-btn{font-size:12px; padding:8px 10px}
 }

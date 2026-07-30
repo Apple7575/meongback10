@@ -28,6 +28,9 @@ PORT = int(os.environ.get("PORT", 8000))  # 배포 플랫폼(Render 등)이 PORT
 PIN_ITERATIONS = 120_000
 PIN_MAX_FAILS = 5          # 이 횟수를 넘기면
 PIN_LOCK_SECONDS = 600     # 10분간 잠금
+IP_MAX_FAILS = 10          # 한 기기에서 실패 10회면
+IP_LOCK_SECONDS = 600      # 10분간 차단 (이름·나이·PIN 무작위 대입 방지)
+_IP_FAILS = {}             # ip → {count, until}
 
 try:
     import qrcode
@@ -112,6 +115,11 @@ def hash_pin(pin: str, salt: str) -> str:
 
 def now_ts() -> float:
     return datetime.now().timestamp()
+
+
+def digits(v) -> str:
+    """'7살' → '7' — 나이 비교를 느슨하게 하기 위해."""
+    return re.sub(r"\D", "", str(v or ""))
 
 
 # ── DB ─────────────────────────────────────────
@@ -363,7 +371,9 @@ class Handler(BaseHTTPRequestHandler):
             "memo": str(body.get("memo") or "").strip()[:500],
             "status": status,
             "source": source,
-            "contact": bool(body.get("contact")),
+            # 목격자가 남긴 연락처 — 보호자만 볼 수 있다(관리 API가 인증으로 보호됨)
+            "phone": re.sub(r"[^\d+\-]", "", str(body.get("phone") or ""))[:20] or None,
+            "contact": bool(body.get("contact")) or bool(body.get("phone")),
             "x": round(float(body["x"])), "y": round(float(body["y"])),
             "scene": str(body.get("scene") or "street")[:20],
             "photo": body.get("photo") if isinstance(body.get("photo"), str)
@@ -404,6 +414,10 @@ class Handler(BaseHTTPRequestHandler):
             except (TypeError, ValueError):
                 return default
 
+        def img(key):
+            v = body.get(key)
+            return v if isinstance(v, str) and v.startswith("data:image/") else None
+
         name = s("dogName", n=20)
         db = load_db()
         slug = "dog-" + secrets.token_hex(3)
@@ -427,6 +441,7 @@ class Handler(BaseHTTPRequestHandler):
             "lostY": round(float(body["lostY"])),
             "centerLat": geo("centerLat", 37.6447),
             "centerLng": geo("centerLng", 127.0763),
+            "photo": img("photo"),      # 전단지에 쓰는 강아지 사진
             "status": "찾는 중",
             "createdAt": datetime.now().strftime("%Y-%m-%dT%H:%M"),
             "ownerKey": owner_key,
@@ -438,7 +453,24 @@ class Handler(BaseHTTPRequestHandler):
         save_db(db)
         self._json({"notice": public_notice(notice), "slug": slug, "ownerKey": owner_key}, 201)
 
-    # ── PIN으로 관리 권한 되찾기 ────────────────
+    # ── 내 공고 되찾기 (이름 + 나이 + PIN) ──────
+    def _client_ip(self):
+        fwd = self.headers.get("X-Forwarded-For", "")
+        return fwd.split(",")[0].strip() if fwd else self.client_address[0]
+
+    def _ip_blocked(self):
+        """이름·나이·PIN을 무작위로 대입하는 걸 막는다."""
+        rec = _IP_FAILS.get(self._client_ip())
+        return bool(rec and now_ts() < rec.get("until", 0))
+
+    def _ip_fail(self):
+        ip = self._client_ip()
+        rec = _IP_FAILS.setdefault(ip, {"count": 0, "until": 0})
+        rec["count"] += 1
+        if rec["count"] >= IP_MAX_FAILS:
+            rec["until"] = now_ts() + IP_LOCK_SECONDS
+            rec["count"] = 0
+
     def _auth_pin(self):
         body = self._body()
         if body is None:
@@ -448,31 +480,65 @@ class Handler(BaseHTTPRequestHandler):
 
     def _auth_pin_locked(self, body):
         db = load_db()
-        slug = str(body.get("slug") or "").strip()
-        notice = db["notices"].get(slug)
         pin = str(body.get("pin") or "").strip()
-        if not notice or not notice.get("pinHash"):
-            self._json({"error": "공고를 찾을 수 없거나 PIN이 설정되지 않았어요"}, 404)
+        slug = str(body.get("slug") or "").strip()
+        name = str(body.get("dogName") or "").strip()
+        age = digits(body.get("age"))
+
+        if self._ip_blocked():
+            self._json({"error": "시도가 너무 많아요. 10분 뒤에 다시 시도해주세요"}, 429)
             return
-        locked_until = notice.get("pinLockedUntil", 0)
-        if locked_until and now_ts() < locked_until:
-            wait = int((locked_until - now_ts()) / 60) + 1
-            self._json({"error": f"PIN을 여러 번 틀렸어요. {wait}분 뒤에 다시 시도해주세요"}, 429)
+        if not re.fullmatch(r"\d{4}", pin):
+            self._json({"error": "PIN을 숫자 4자리로 입력해주세요"}, 400)
             return
-        if not hmac.compare_digest(notice["pinHash"], hash_pin(pin, notice.get("pinSalt", ""))):
-            fails = notice.get("pinFails", 0) + 1
-            notice["pinFails"] = fails
+
+        # 후보 찾기 — slug를 알면 그것만, 모르면 이름(+나이)으로
+        if slug:
+            n = db["notices"].get(slug)
+            candidates = [n] if n else []
+        elif name:
+            candidates = [n for n in db["notices"].values()
+                          if n.get("dogName", "").strip() == name
+                          and (not age or digits(n.get("age")) == age)]
+        else:
+            self._json({"error": "강아지 이름을 입력해주세요"}, 400)
+            return
+        candidates = [n for n in candidates if n.get("pinHash")]
+        if not candidates:
+            self._ip_fail()
+            self._json({"error": "그 이름·나이로 등록된 공고를 찾지 못했어요. 입력을 다시 확인해주세요"}, 404)
+            return
+
+        # 잠긴 공고는 건너뛰고, PIN이 맞는 공고를 찾는다
+        locked_wait = 0
+        for n in candidates:
+            until = n.get("pinLockedUntil", 0)
+            if until and now_ts() < until:
+                locked_wait = max(locked_wait, int((until - now_ts()) / 60) + 1)
+                continue
+            if hmac.compare_digest(n["pinHash"], hash_pin(pin, n.get("pinSalt", ""))):
+                n["pinFails"] = 0
+                n["pinLockedUntil"] = 0
+                save_db(db)
+                _IP_FAILS.pop(self._client_ip(), None)
+                self._json({"ownerKey": n["ownerKey"], "slug": n["slug"], "notice": public_notice(n)})
+                return
+
+        # 전부 실패 — 후보들의 실패 횟수를 올린다
+        left = PIN_MAX_FAILS
+        for n in candidates:
+            fails = n.get("pinFails", 0) + 1
+            n["pinFails"] = fails
             if fails >= PIN_MAX_FAILS:
-                notice["pinLockedUntil"] = now_ts() + PIN_LOCK_SECONDS
-                notice["pinFails"] = 0
-            save_db(db)
-            left = max(0, PIN_MAX_FAILS - fails)
-            self._json({"error": f"PIN이 맞지 않아요 (남은 시도 {left}회)"}, 401)
-            return
-        notice["pinFails"] = 0
-        notice["pinLockedUntil"] = 0
+                n["pinLockedUntil"] = now_ts() + PIN_LOCK_SECONDS
+                n["pinFails"] = 0
+            left = min(left, max(0, PIN_MAX_FAILS - fails))
         save_db(db)
-        self._json({"ownerKey": notice["ownerKey"], "notice": public_notice(notice)})
+        self._ip_fail()
+        if locked_wait:
+            self._json({"error": f"PIN을 여러 번 틀렸어요. {locked_wait}분 뒤에 다시 시도해주세요"}, 429)
+            return
+        self._json({"error": f"PIN이 맞지 않아요 (남은 시도 {left}회)"}, 401)
 
     # ── 제보 상태 변경 / 공고 수정 (보호자만) ───
     def do_PATCH(self):
