@@ -91,15 +91,11 @@
       <p class="sub">전단지 이미지를 저장해 단톡방·동네 커뮤니티에 보내고, 인쇄해서 전봇대·상가에 붙이세요.</p>
       <div class="acts">
         <button class="act primary" type="button" id="saveFlyer">
-          <span class="ai" id="iconSave"></span>
+          <span class="ai ic" data-icon="download"></span>
           <span>전단지 이미지 저장<small>사진첩에 저장 → 카톡·당근·인스타로 바로 전송</small></span>
         </button>
-        <button class="act" type="button" id="printFlyer">
-          <span class="ai" id="iconPrint"></span>
-          <span>전단지 인쇄<small>A4로 출력해 전봇대·상가에 부착</small></span>
-        </button>
         <button class="act" type="button" id="copyLink">
-          <span class="ai" id="iconLink"></span>
+          <span class="ai ic" data-icon="link"></span>
           <span>제보 링크 복사<small>문자·메시지로 링크만 보낼 때</small></span>
         </button>
       </div>
@@ -109,7 +105,7 @@
 
     <!-- 보호자 전용 — 절대 공유하면 안 되는 링크 -->
     <div class="card owner-card" id="ownerCard">
-      <h3>🔑 내 관리 링크 <span class="only-me">나만 보관</span></h3>
+      <h3><span class="ic" data-icon="key"></span> 내 관리 링크 <span class="only-me">나만 보관</span></h3>
       <p class="sub">이 링크로 들어가야 제보를 확인하고 신뢰·숨김을 정할 수 있어요.
         <b>목격자에게는 위의 제보 링크를 보내주세요.</b></p>
       <div class="link-row" id="manageUrl"></div>
@@ -126,7 +122,7 @@
     <div class="card tip-card">
       <h4>공유 팁</h4>
       <ul>
-        <li>전단지는 마지막 목격 지점 반경 1km 안 전봇대·상가에 붙이는 게 효과적이에요.</li>
+        <li>전단지 이미지를 저장해 인쇄하면 마지막 목격 지점 반경 1km 안 전봇대·상가에 붙일 수 있어요.</li>
         <li>동네 커뮤니티 글에는 전단지 이미지와 함께 "잡지 말고 제보만"을 꼭 적어주세요.</li>
         <li>제보가 들어오면 유실목격지도에 실시간으로 모입니다.</li>
       </ul>
@@ -136,6 +132,7 @@
 
 <div class="toast" id="toast" role="status"></div>
 
+<script src="/icons.js"></script>
 <script src="/session.js"></script>
 <script>
 const $=s=>document.querySelector(s);
@@ -143,11 +140,6 @@ function toast(msg){
   const t=$("#toast"); t.textContent=msg; t.classList.add("show");
   clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2600);
 }
-const icon=(p,sw=2.1)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}"
-  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
-$("#iconSave").innerHTML=icon('<path d="M12 4v11"/><path d="m8 11.5 4 4 4-4"/><path d="M5 19h14"/>');
-$("#iconPrint").innerHTML=icon('<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="2"/><path d="M7 16h10v4H7z"/>');
-$("#iconLink").innerHTML=icon('<path d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1 1"/><path d="M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1-1"/>');
 
 /* 어떤 공고인지: ?slug= → 지금 보고 있는 내 공고 → 데모 */
 const askedSlug=new URLSearchParams(location.search).get("slug");
@@ -332,19 +324,6 @@ $("#saveFlyer").addEventListener("click",()=>{
   a.download=`멍백홈_${notice.dogName}_전단지.png`;
   document.body.appendChild(a); a.click(); a.remove();
   toast("전단지를 저장했어요 — 단톡방·커뮤니티에 보내주세요");
-});
-
-$("#printFlyer").addEventListener("click",()=>{
-  if(!flyerUrl){ toast("전단지를 아직 만들고 있어요"); return; }
-  const w=window.open("","_blank");
-  if(!w){ toast("팝업이 막혔어요 — 이미지를 저장해 인쇄해주세요"); return; }
-  w.document.write(`<!DOCTYPE html><html><head><title>${notice.dogName} 전단지</title>
-    <style>@page{size:A4;margin:0}
-    html,body{margin:0;padding:0}
-    img{width:100%;height:auto;display:block}
-    @media print{body{margin:0}}</style></head>
-    <body><img src="${flyerUrl}" onload="window.focus();window.print();"></body></html>`);
-  w.document.close();
 });
 
 $("#copyLink").addEventListener("click",async()=>{

@@ -378,7 +378,7 @@
       </div>
       <div class="dog-facts" id="dogFacts"></div>
       <div class="caution" id="dogCaution"></div>
-      <button class="found-btn" id="foundBtn" type="button">🎉 강아지를 찾았어요 — 수색 종료</button>
+      <button class="found-btn" id="foundBtn" type="button"></button>
       <a href="/new" style="font-size:12px;font-weight:700;color:var(--navy);text-decoration:none;text-align:center">＋ 다른 강아지 유실 공고 등록하기 →</a>
     </section>
 
@@ -484,27 +484,16 @@
   .addmode-on #mapContainer{outline:3px solid var(--pending);outline-offset:-3px;border-radius:var(--radius)}
 </style>
 
+<script src="/icons.js"></script>
 <script src="/session.js"></script>
 <script src="/config.js"></script>
 <script src="/mapengine.js"></script>
 <script>
-const svgIcon = (paths, sw=2.2) =>
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}"
-     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
-const ICON = {
-  check:  svgIcon('<path d="m4.5 12.6 4.8 4.8L19.5 6.6"/>', 2.6),
-  help:   svgIcon('<circle cx="12" cy="12" r="9"/><path d="M9.3 9.3a3 3 0 1 1 3.9 3.8c-.7.2-1.2.9-1.2 1.6v.3"/><path d="M12 18.2h.01"/>'),
-  eyeOff: svgIcon('<path d="M3 3 21 21"/><path d="M10.6 5.2A9.9 9.9 0 0 1 12 5.1c5 0 9 4.4 9 6.9 0 .9-.7 2.2-1.9 3.4M6.6 7C4.3 8.5 3 10.4 3 12c0 2.5 4 6.9 9 6.9 1.6 0 3-.4 4.3-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>'),
-  alert:  svgIcon('<path d="M12 4.6 21 19H3L12 4.6Z"/><path d="M12 10.2v3.6"/><path d="M12 16.6h.01"/>'),
-  plus:   svgIcon('<path d="M12 5.5v13M5.5 12h13"/>', 2.4),
-  bell:   svgIcon('<path d="M18 9.2a6 6 0 1 0-12 0c0 5-2.1 6.3-2.1 6.3h16.2S18 14.2 18 9.2"/><path d="M10.3 19a2 2 0 0 0 3.4 0"/>'),
-  share:  svgIcon('<path d="M12 15.2V4"/><path d="m8.2 7.8 3.8-3.8 3.8 3.8"/><path d="M5 13.6V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4.4"/>'),
-};
 const STATUS = {
-  trusted:  {label:"신뢰",      cls:"trusted",  ic:ICON.check},
-  pending:  {label:"확인 필요", cls:"pending",  ic:ICON.help},
-  important:{label:"중요",      cls:"important",ic:ICON.alert},
-  hidden:   {label:"숨김",      cls:"hidden",   ic:ICON.eyeOff},
+  trusted:  {label:"신뢰",      cls:"trusted",  ic:Icons.svg("check")},
+  pending:  {label:"확인 필요", cls:"pending",  ic:Icons.svg("help-circle")},
+  important:{label:"중요",      cls:"important",ic:Icons.svg("alert-triangle")},
+  hidden:   {label:"숨김",      cls:"hidden",   ic:Icons.svg("eye-off")},
 };
 const $ = s=>document.querySelector(s);
 const timeVal = t=>parseInt(t.replace(":",""),10);
@@ -680,7 +669,7 @@ function renderList(){
         <span class="ri-top"><span class="seen-time">${r.seenAt}</span>
           <span class="badge b-${st.cls}">${st.label}</span>
           ${newIds.has(r.id)?'<span class="badge b-new">NEW</span>':''}
-          ${r.phone?'<span class="ri-tel">📞</span>':''}</span>
+          ${r.phone?`<span class="ri-tel ic" title="연락처 있음">${Icons.svg("phone")}</span>`:''}</span>
         <span class="ri-place">${r.place}</span>
         <span class="ri-sub"><span class="dir">${r.dir}</span><span>접수 ${r.receivedAt}</span></span>
       </span></button>
@@ -729,9 +718,9 @@ function openDetail(id){
   $("#dDir").textContent=r.dir;
   $("#dMemo").textContent=r.memo?("“"+r.memo+"”"):"작성된 메모가 없어요";
   $("#dContact").innerHTML=r.phone
-    ? `<a class="call-btn" href="tel:${r.phone}">📞 ${r.phone} 전화하기</a>
+    ? `<a class="call-btn" href="tel:${r.phone}"><span class="ic">${Icons.svg("phone")}</span> ${r.phone} 전화하기</a>
        <a class="sms-btn" href="sms:${r.phone}">문자</a>`
-    : `<span class="contact-no">🔕 제보자가 연락처를 남기지 않았어요</span>`;
+    : `<span class="contact-no"><span class="ic">${Icons.svg("phone-off")}</span> 제보자가 연락처를 남기지 않았어요</span>`;
   $("#statusActions").innerHTML=["trusted","pending","hidden","important"].map(k=>{
     const s=STATUS[k];
     return `<button class="st-btn ${r.status===k?"sel-"+k:""}" data-st="${k}" type="button"><span class="ic">${s.ic}</span>${s.label}</button>`;
@@ -796,7 +785,9 @@ function syncStatusUI(){
   const found = notice.status==="찾았어요";
   $("#dogStatus").textContent=notice.status;
   $("#mStripStatus").textContent=notice.status;
-  $("#foundBtn").textContent = found ? "다시 수색 중으로 되돌리기" : "🎉 강아지를 찾았어요 — 수색 종료";
+  $("#foundBtn").innerHTML = found
+    ? "다시 수색 중으로 되돌리기"
+    : `<span class="ic">${Icons.svg("home")}</span> 강아지를 찾았어요 — 수색 종료`;
   $("#foundBtn").classList.toggle("done", found);
   /* 며칠 지났는지 + 몇 시간 지났는지 함께 (피드백: 시간까지 보이면 좋겠다) */
   const ms=Date.now()-new Date(notice.lostAt);
@@ -823,7 +814,7 @@ function openAdd(p){
   addPick=p; addBearing=null; addStatusVal="trusted";
   const now=new Date();
   $("#addTime").value=String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
-  $("#addLoc").textContent=`📍 지도에 찍은 위치 (${p.x}, ${p.y}) — 방향을 고르면 화살표로 표시돼요`;
+  $("#addLoc").innerHTML=`<span class="ic">${Icons.svg("map-pin")}</span> 지도에 찍은 위치 — 방향을 고르면 화살표로 표시돼요`;
   $("#addPlace").value=""; $("#addMemo").value=""; $("#addContact").checked=false;
   // 방향 8칸
   $("#dir8").innerHTML=DIR8.map(([label,deg])=>
@@ -932,9 +923,9 @@ function showLanding(){
 
 (async function init(){
   /* 아이콘 채우기 */
-  $("#addIcon").innerHTML=ICON.plus;   $("#mAddIcon").innerHTML=ICON.plus;
-  $("#notifIcon").innerHTML=ICON.bell;
-  $("#shareIcon").innerHTML=ICON.share; $("#mShareIcon").innerHTML=ICON.share;
+  $("#addIcon").innerHTML=Icons.svg("plus");     $("#mAddIcon").innerHTML=Icons.svg("plus");
+  $("#notifIcon").innerHTML=Icons.svg("bell");
+  $("#shareIcon").innerHTML=Icons.svg("share");  $("#mShareIcon").innerHTML=Icons.svg("share");
 
   mySlug = await resolveOwner();
   if(!mySlug){ showLanding(); return; }

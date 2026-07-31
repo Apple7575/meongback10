@@ -58,8 +58,11 @@
 
     <div class="field">
       <label for="age">나이</label>
-      <input type="text" id="age" maxlength="20" placeholder="예: 7살" autocomplete="off">
-      <div class="hint">공고에 적은 나이예요. 숫자만 맞으면 돼요(7 / 7살 모두 인정).</div>
+      <div class="num-field">
+        <input type="number" id="age" inputmode="numeric" min="0" max="30" step="1" placeholder="7" autocomplete="off">
+        <span class="unit">살</span>
+      </div>
+      <div class="hint">공고에 적은 나이예요. 기억나지 않으면 비워두고 PIN만 넣어도 돼요.</div>
     </div>
 
     <div class="field">

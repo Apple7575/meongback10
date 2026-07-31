@@ -148,16 +148,16 @@
         <div class="mini-map-hint" id="miniHint">지도를 탭하면 목격 위치가 표시돼요</div>
       </div>
       <div class="quick-spots" id="quickSpots">
-        <button class="chip" type="button" id="useLoc">📍 내 현재 위치로</button>
+        <button class="chip" type="button" id="useLoc"><span class="ic" data-icon="crosshair"></span>내 현재 위치로</button>
       </div>
     </div>
 
     <div class="field">
       <span class="flabel">강아지가 어느 쪽으로 갔나요? (선택)</span>
       <div class="dir-choices">
-        <button class="dir-btn" type="button" data-dir="map"><span class="ic">🗺️</span>지도에서<br>방향 찍기</button>
-        <button class="dir-btn" type="button" data-dir="compass" id="compassBtn"><span class="ic">🧭</span>지금 보는<br>방향</button>
-        <button class="dir-btn on" type="button" data-dir="none"><span class="ic">📍</span>방향 없이<br>핀만</button>
+        <button class="dir-btn" type="button" data-dir="map"><span class="ic ic-lg" data-icon="map"></span>지도에서<br>방향 끌기</button>
+        <button class="dir-btn" type="button" data-dir="compass" id="compassBtn"><span class="ic ic-lg" data-icon="compass"></span>지금 보는<br>방향</button>
+        <button class="dir-btn on" type="button" data-dir="none"><span class="ic ic-lg" data-icon="map-pin"></span>방향 없이<br>핀만</button>
       </div>
       <div class="dir-result" id="dirResult">방향 없이 핀으로 등록돼요</div>
 
@@ -205,7 +205,7 @@
     <div class="field">
       <span class="flabel">사진이 있다면 올려주세요</span>
       <label class="photo-drop">
-        <span class="pv" id="photoPreview">📷</span>
+        <span class="pv" id="photoPreview"><span class="ic ic-lg" data-icon="camera"></span></span>
         <span id="photoLabel">멀리서 찍은 사진도 큰 도움이 돼요<br><b style="color:var(--navy)">탭해서 사진 선택</b></span>
         <input type="file" id="wPhoto" accept="image/*" hidden>
       </label>
@@ -237,6 +237,7 @@
 
 <div class="toast" id="toast" role="status"></div>
 
+<script src="/icons.js"></script>
 <script src="/session.js"></script>
 <script src="/config.js"></script>
 <script src="/mapengine.js"></script>
@@ -516,7 +517,7 @@ $("#newReport").addEventListener("click",()=>{
   selDirBtn("none"); updateDirResult();
   $("#miniHint").textContent="지도를 탭하면 목격 위치가 표시돼요";
   $("#wPlace").value=""; $("#wMemo").value=""; $("#wPhoto").value=""; $("#wPhone").value="";
-  $("#photoPreview").textContent="📷";
+  $("#photoPreview").innerHTML=`<span class="ic ic-lg">${Icons.svg("camera")}</span>`;
   $("#photoLabel").innerHTML=`멀리서 찍은 사진도 큰 도움이 돼요<br><b style="color:var(--navy)">탭해서 사진 선택</b>`;
   document.querySelectorAll("#quickSpots .chip").forEach(o=>o.classList.remove("on"));
   $("#witnessForm").style.display="";

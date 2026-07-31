@@ -90,7 +90,7 @@
     <div class="field">
       <span class="sec-label">사진 — 전단지에 크게 들어가요</span>
       <label class="photo-drop">
-        <span class="pv" id="photoPreview">📷</span>
+        <span class="pv" id="photoPreview"><span class="ic ic-lg" data-icon="camera"></span></span>
         <span id="photoLabel">얼굴이 잘 보이는 사진이 좋아요<br><b style="color:var(--navy)">탭해서 사진 선택</b></span>
         <input type="file" id="dogPhoto" accept="image/*" hidden>
       </label>
@@ -101,8 +101,20 @@
     </div>
     <div class="grid2">
       <div class="field"><label for="breed">견종</label><input type="text" id="breed" maxlength="30" placeholder="예: 말티즈 (흰색)"></div>
-      <div class="field"><label for="age">나이</label><input type="text" id="age" maxlength="20" placeholder="예: 7살"></div>
-      <div class="field"><label for="weight">체중</label><input type="text" id="weight" maxlength="20" placeholder="예: 4.2kg"></div>
+      <div class="field">
+        <label for="age">나이</label>
+        <div class="num-field">
+          <input type="number" id="age" inputmode="decimal" min="0" max="30" step="1" placeholder="7">
+          <span class="unit">살</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="weight">체중</label>
+        <div class="num-field">
+          <input type="number" id="weight" inputmode="decimal" min="0" max="120" step="0.1" placeholder="4.2">
+          <span class="unit">kg</span>
+        </div>
+      </div>
       <div class="field"><label for="personality">성격</label><input type="text" id="personality" maxlength="30" placeholder="예: 겁이 많음"></div>
     </div>
     <div class="field"><label for="health">건강 / 복약 주의사항</label><input type="text" id="health" maxlength="60" placeholder="예: 심장약 복용 중"></div>
@@ -124,7 +136,7 @@
       <span class="sec-label">마지막으로 본 위치를 지도에 찍어주세요 <span class="req">*</span></span>
       <div class="place-search">
         <input type="text" id="placeQ" placeholder="장소·주소로 찾기 (예: 전주역, 노원구 중계동)" autocomplete="off">
-        <button class="chip" type="button" id="placeGo">검색</button>
+        <button class="chip" type="button" id="placeGo"><span class="ic" data-icon="search"></span>검색</button>
       </div>
       <div class="place-results" id="placeResults" hidden></div>
       <div class="mini-map">
@@ -132,7 +144,7 @@
         <div class="mini-map-hint" id="miniHint">현재 위치를 불러오는 중… 지도를 탭하면 위치를 옮길 수 있어요</div>
       </div>
       <div class="quick-spots" id="quickSpots">
-        <button class="chip" type="button" id="useLoc">📍 내 현재 위치로</button>
+        <button class="chip" type="button" id="useLoc"><span class="ic" data-icon="crosshair"></span>내 현재 위치로</button>
       </div>
       <p class="loc-warn" id="locWarn" hidden></p>
     </div>
@@ -157,11 +169,19 @@
 
 <div class="toast" id="toast" role="status"></div>
 
+<script src="/icons.js"></script>
 <script src="/session.js"></script>
 <script src="/config.js"></script>
 <script src="/mapengine.js"></script>
 <script>
 const $=s=>document.querySelector(s);
+/* 숫자 입력 + 단위 → "7살", "4.2kg". 비우면 서버가 '미상'으로 채운다 */
+function numUnit(sel, unit){
+  const v=$(sel).value.trim();
+  if(v==="") return "";
+  const n=parseFloat(v);
+  return isNaN(n) ? "" : (Number.isInteger(n) ? n : n.toFixed(1)) + unit;
+}
 let picked=null, engine=null;
 /* 유실 위치(=지도 중심)의 실제 위경도. GPS가 잡히면 갱신, 안 잡히면 기본값(중계동) */
 let geoCenter={lat:37.6447, lng:127.0763};
@@ -245,7 +265,7 @@ function useCurrentLocation(announce){
     const acc=Math.round(pos.coords.accuracy||0);
     if(acc>500){
       $("#locWarn").hidden=false;
-      $("#locWarn").innerHTML=`⚠ 이 기기가 알려준 위치는 오차가 약 ${acc>=1000?(acc/1000).toFixed(1)+"km":acc+"m"}예요.
+      $("#locWarn").innerHTML=`<span class="ic">${Icons.svg("alert-triangle")}</span> 이 기기가 알려준 위치는 오차가 약 ${acc>=1000?(acc/1000).toFixed(1)+"km":acc+"m"}예요.
         엉뚱한 곳이면 <b>위의 장소 검색</b>으로 찾거나 지도를 탭해 옮겨주세요.`;
       if(announce) toast("위치가 정확하지 않을 수 있어요 — 장소 검색을 써보세요");
     }else{
@@ -306,8 +326,8 @@ $("#submit").addEventListener("click",async()=>{
   try{
     const res=await fetch("/api/notice",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
-        dogName, breed:$("#breed").value.trim(), age:$("#age").value.trim(),
-        weight:$("#weight").value.trim(), personality:$("#personality").value.trim(),
+        dogName, breed:$("#breed").value.trim(), age:numUnit("#age","살"),
+        weight:numUnit("#weight","kg"), personality:$("#personality").value.trim(),
         health:$("#health").value.trim(), caution:cautionText(), photo:dogPhoto,
         lostAt:$("#lostAt").value.slice(0,16), lostPlace:$("#lostPlace").value.trim(),
         lostX:picked.x, lostY:picked.y,
