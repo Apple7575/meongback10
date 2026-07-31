@@ -170,9 +170,10 @@ def _pg_connect():
     from urllib.parse import urlparse as _u, unquote, parse_qs
     import ssl
     u = _u(DATABASE_URL)
+    host = u.hostname or ""
     args = dict(
         user=unquote(u.username or ""), password=unquote(u.password or ""),
-        host=u.hostname, port=u.port or 5432,
+        host=host, port=u.port or 5432,
         database=(u.path or "/postgres").lstrip("/") or "postgres",
         timeout=15,
     )
@@ -181,10 +182,21 @@ def _pg_connect():
     ctx = ssl.create_default_context()
     ctx.check_hostname = False          # 관리형 DB는 자체 인증서를 쓰는 경우가 많다
     ctx.verify_mode = ssl.CERT_NONE
+    errors = []
+    for label, kw in (("ssl", {"ssl_context": ctx}), ("plain", {})):
+        try:
+            return _pg.connect(**args, **kw)
+        except Exception as e:
+            errors.append(f"{label}={type(e).__name__}: {e}")
+    # 호스트 이름을 못 다루는 환경을 대비해 직접 주소를 찾아 한 번 더 시도
     try:
-        return _pg.connect(ssl_context=ctx, **args)
-    except Exception:
-        return _pg.connect(**args)      # SSL을 지원하지 않는 서버면 평문으로
+        import socket
+        info = socket.getaddrinfo(host, args["port"], 0, socket.SOCK_STREAM)
+        ip = info[0][4][0]
+        return _pg.connect(**{**args, "host": ip}, ssl_context=ctx)
+    except Exception as e:
+        errors.append(f"byip={type(e).__name__}: {e}")
+    raise RuntimeError(" | ".join(errors)[:400])
 
 
 def _pg_init():
@@ -255,6 +267,7 @@ def init_store():
         if _pg is None:
             STORE, STORE_NOTE = "file", "pg8000 미설치 — pip install pg8000 필요"
         else:
+            import traceback, sys as _sys
             last = ""
             for attempt in range(3):
                 try:
@@ -263,9 +276,12 @@ def init_store():
                     STORE = "postgres"
                     break
                 except Exception as e:      # 네트워크·인증 실패 등
-                    last = f"{type(e).__name__}: {e}"
+                    tb = traceback.format_exc().strip().splitlines()
+                    where = " << ".join(l.strip() for l in tb[-4:-1])
+                    last = f"{type(e).__name__}: {e} @ {where}"
             if STORE != "postgres":
-                STORE_NOTE = "DB 연결 실패 — 파일로 동작 중: " + last[:200]
+                STORE_NOTE = (f"DB 연결 실패 — 파일로 동작 중 "
+                              f"[py{_sys.version.split()[0]}] " + last[:600])
     if _DB is None:
         _DB, changed = _read_file()
         if changed:
