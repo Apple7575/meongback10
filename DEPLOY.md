@@ -104,6 +104,47 @@ Render는 GitHub 저장소를 연결하면 자동으로 서버를 돌려주는 �
 
 ---
 
+## 4-2. 데이터가 사라지지 않게 DB 연결 (베타 전 필수)
+
+Render 무료 플랜은 **15분간 접속이 없으면 서버가 잠들고, 깨어날 때 저장 파일이 초기화**됩니다.
+공고와 제보가 통째로 사라지므로, 실제 사용자를 받으려면 외부 DB가 필요합니다.
+
+`DATABASE_URL` 환경변수만 넣으면 자동으로 PostgreSQL에 저장되고, 없으면 지금처럼 파일에 저장됩니다.
+
+### Supabase로 연결하기 (무료)
+
+1. https://supabase.com → **Start your project** → GitHub로 로그인
+2. **New project**
+   - Name: `mungbaek`
+   - Database Password: **직접 정하고 어딘가 적어두세요** (연결 문자열에 들어갑니다)
+   - Region: **Northeast Asia (Seoul)**
+   - **Create new project** → 1~2분 대기
+3. 왼쪽 아래 **Project Settings**(톱니) → **Database**
+4. **Connection string** 항목에서 **Session pooler** 탭 선택 ← 중요
+   - Direct connection은 IPv6 전용이라 Render에서 연결되지 않습니다. 반드시 **Session pooler**(IPv4)를 쓰세요.
+   - 형태: `postgresql://postgres.xxxx:[YOUR-PASSWORD]@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres`
+5. 복사한 문자열에서 `[YOUR-PASSWORD]` 를 2번에서 정한 실제 비밀번호로 바꿉니다.
+6. Render 대시보드 → **mungbaek-home** → **Environment** → **Add Environment Variable**
+   - Key: `DATABASE_URL`
+   - Value: 5번에서 완성한 문자열
+   - **Save changes** → 자동 재배포 (1~3분)
+
+### 연결됐는지 확인
+
+```
+https://mungbaek-home.onrender.com/api/health
+```
+
+- `{"store": "postgres", ...}` → **연결 성공.** 이제 데이터가 사라지지 않습니다.
+- `{"store": "file", "note": "DB 연결 실패 — ..."}` → note에 원인이 그대로 나옵니다.
+  - `password authentication failed` → 비밀번호를 잘못 붙여넣음
+  - 연결 시간 초과 → Direct connection을 쓴 경우. **Session pooler** 문자열로 교체
+
+> Neon(https://neon.tech)도 동일하게 동작합니다. 연결 문자열을 `DATABASE_URL`에 넣으면 됩니다.
+> Supabase 무료 플랜은 1주일간 접속이 없으면 일시정지되며, 대시보드에서 다시 켤 수 있습니다.
+
+---
+
 ## 5. 이후 코드를 수정했을 때
 
 ```powershell

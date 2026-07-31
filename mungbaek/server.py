@@ -151,10 +151,86 @@ def _migrate(db):
     return {"notices": notices}, True
 
 
-_DB = None   # 메모리에 올려둔 DB — 요청마다 파일을 다시 읽지 않는다
+# ── 저장소 ────────────────────────────────────
+# DATABASE_URL이 있으면 PostgreSQL, 없으면 파일(data.json).
+# Render 무료 플랜은 서버가 잠들 때 파일이 사라지므로, 실제 운영에는 DB가 필요하다.
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+STORE = "file"          # 실제로 쓰고 있는 저장소 — /api/health 로 확인 가능
+STORE_NOTE = ""
+_DB = None              # 메모리에 올려둔 전체 데이터 (요청마다 다시 읽지 않는다)
+
+try:
+    import pg8000.dbapi as _pg     # 순수 파이썬 드라이버 — 빌드 도구 없이 설치됨
+except ImportError:
+    _pg = None
 
 
-def _read_disk():
+def _pg_connect():
+    """Supabase·Neon 등 관리형 DB는 SSL이 필수, 로컬 DB는 보통 SSL이 없다 → 둘 다 지원."""
+    from urllib.parse import urlparse as _u, unquote, parse_qs
+    import ssl
+    u = _u(DATABASE_URL)
+    args = dict(
+        user=unquote(u.username or ""), password=unquote(u.password or ""),
+        host=u.hostname, port=u.port or 5432,
+        database=(u.path or "/postgres").lstrip("/") or "postgres",
+        timeout=15,
+    )
+    if (parse_qs(u.query).get("sslmode") or [""])[0] == "disable":
+        return _pg.connect(**args)
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False          # 관리형 DB는 자체 인증서를 쓰는 경우가 많다
+    ctx.verify_mode = ssl.CERT_NONE
+    try:
+        return _pg.connect(ssl_context=ctx, **args)
+    except Exception:
+        return _pg.connect(**args)      # SSL을 지원하지 않는 서버면 평문으로
+
+
+def _pg_init():
+    """공고 하나당 한 행. 바뀐 공고만 다시 쓰면 되므로 사진이 많아도 가볍다."""
+    con = _pg_connect()
+    try:
+        cur = con.cursor()
+        cur.execute("CREATE TABLE IF NOT EXISTS notices ("
+                    "slug TEXT PRIMARY KEY, data TEXT NOT NULL, "
+                    "updated_at TIMESTAMPTZ NOT NULL DEFAULT now())")
+        con.commit()
+    finally:
+        con.close()
+
+
+def _pg_load():
+    con = _pg_connect()
+    try:
+        cur = con.cursor()
+        cur.execute("SELECT slug, data FROM notices")
+        rows = cur.fetchall()
+    finally:
+        con.close()
+    notices = {}
+    for slug, data in rows:
+        try:
+            notices[slug] = json.loads(data)
+        except json.JSONDecodeError:
+            pass
+    return {"notices": notices}
+
+
+def _pg_save(slug, notice):
+    con = _pg_connect()
+    try:
+        cur = con.cursor()
+        cur.execute(
+            "INSERT INTO notices (slug, data, updated_at) VALUES (%s, %s, now()) "
+            "ON CONFLICT (slug) DO UPDATE SET data = EXCLUDED.data, updated_at = now()",
+            (slug, json.dumps(notice, ensure_ascii=False)))
+        con.commit()
+    finally:
+        con.close()
+
+
+def _read_file():
     if not DB_PATH.exists():
         return _blank_db(), True
     try:
@@ -162,33 +238,71 @@ def _read_disk():
     except (json.JSONDecodeError, OSError):
         return _blank_db(), True
     db, changed = _migrate(db)
-    if DEMO_SLUG not in db.get("notices", {}):
-        db.setdefault("notices", {})[DEMO_SLUG] = demo_notice()
-        changed = True
     return db, changed
 
 
-def _write_disk(db):
+def _write_file(db):
     """임시 파일에 쓰고 바꿔치기 — 저장 도중 서버가 죽어도 파일이 깨지지 않는다."""
     tmp = DB_PATH.with_suffix(".tmp")
     tmp.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(DB_PATH)
 
 
+def init_store():
+    """서버 시작 시 한 번. DB가 있으면 DB에서, 없으면 파일에서 읽어 메모리에 올린다."""
+    global _DB, STORE, STORE_NOTE
+    if DATABASE_URL:
+        if _pg is None:
+            STORE, STORE_NOTE = "file", "pg8000 미설치 — pip install pg8000 필요"
+        else:
+            last = ""
+            for attempt in range(3):
+                try:
+                    _pg_init()
+                    _DB = _pg_load()
+                    STORE = "postgres"
+                    break
+                except Exception as e:      # 네트워크·인증 실패 등
+                    last = f"{type(e).__name__}: {e}"
+            if STORE != "postgres":
+                STORE_NOTE = "DB 연결 실패 — 파일로 동작 중: " + last[:200]
+    if _DB is None:
+        _DB, changed = _read_file()
+        if changed:
+            _write_file(_DB)
+    # 데모 공고는 항상 있어야 첫 화면 둘러보기가 된다
+    if DEMO_SLUG not in _DB.setdefault("notices", {}):
+        _DB["notices"][DEMO_SLUG] = demo_notice()
+        save_db(DEMO_SLUG)
+    print(f"저장소: {STORE}" + (f" ({STORE_NOTE})" if STORE_NOTE else ""))
+
+
 def load_db():
-    """DB를 돌려준다. 값을 고칠 때는 반드시 LOCK 안에서 하고 save_db()를 부를 것."""
+    """데이터를 돌려준다. 값을 고칠 때는 반드시 LOCK 안에서 하고 save_db()를 부를 것."""
     global _DB
     with LOCK:
         if _DB is None:
-            _DB, changed = _read_disk()
-            if changed:
-                _write_disk(_DB)
+            init_store()
         return _DB
 
 
-def save_db(db=None):
+def save_db(slug=None):
+    """slug를 주면 그 공고만 저장(권장). 없으면 전체 저장."""
+    global STORE, STORE_NOTE
     with LOCK:
-        _write_disk(_DB if db is None else db)
+        if STORE == "postgres":
+            try:
+                targets = ([slug] if slug else list(_DB["notices"].keys()))
+                for s in targets:
+                    n = _DB["notices"].get(s)
+                    if n is not None:
+                        _pg_save(s, n)
+                return
+            except Exception as e:
+                # 저장이 실패해도 서비스는 계속 — 메모리에는 남아 있고 로그로 알린다
+                STORE_NOTE = f"쓰기 실패: {type(e).__name__}: {e}"[:200]
+                print("[저장 실패]", STORE_NOTE)
+        _write_file(_DB)
 
 
 def light_report(r):
@@ -297,6 +411,16 @@ class Handler(BaseHTTPRequestHandler):
                 if self._owner_ok(n):
                     out["isOwner"] = True
                 self._json(out)
+        elif path == "/api/health":
+            # 저장소가 DB인지 파일인지 확인용 — 비밀 정보는 담지 않는다
+            with LOCK:
+                db = load_db()
+                self._json({
+                    "store": STORE,
+                    "note": STORE_NOTE,
+                    "notices": len(db.get("notices", {})),
+                    "reports": sum(len(n.get("reports", [])) for n in db["notices"].values()),
+                })
         elif path == "/api/notices":
             # 아직 찾는 중인 공고 목록 — 목격자가 본 강아지를 고를 수 있게
             with LOCK:
@@ -407,7 +531,7 @@ class Handler(BaseHTTPRequestHandler):
                      and str(body.get("thumb")).startswith("data:image/") else None,
         }
         reports.append(report)
-        save_db(db)
+        save_db(notice["slug"])
         self._json(light_report(report), 201)
 
     # ── 공고 등록 (누구나 — 만든 사람이 보호자가 됨) ──
@@ -476,7 +600,7 @@ class Handler(BaseHTTPRequestHandler):
             "reports": [],
         }
         db["notices"][slug] = notice
-        save_db(db)
+        save_db(slug)
         self._json({"notice": public_notice(notice), "slug": slug, "ownerKey": owner_key}, 201)
 
     # ── 내 공고 되찾기 (이름 + 나이 + PIN) ──────
@@ -545,7 +669,7 @@ class Handler(BaseHTTPRequestHandler):
             if hmac.compare_digest(n["pinHash"], hash_pin(pin, n.get("pinSalt", ""))):
                 n["pinFails"] = 0
                 n["pinLockedUntil"] = 0
-                save_db(db)
+                save_db(n["slug"])
                 _IP_FAILS.pop(self._client_ip(), None)
                 self._json({"ownerKey": n["ownerKey"], "slug": n["slug"], "notice": public_notice(n)})
                 return
@@ -559,7 +683,8 @@ class Handler(BaseHTTPRequestHandler):
                 n["pinLockedUntil"] = now_ts() + PIN_LOCK_SECONDS
                 n["pinFails"] = 0
             left = min(left, max(0, PIN_MAX_FAILS - fails))
-        save_db(db)
+        for n in candidates:
+            save_db(n["slug"])
         self._ip_fail()
         if locked_wait:
             self._json({"error": f"PIN을 여러 번 틀렸어요. {locked_wait}분 뒤에 다시 시도해주세요"}, 429)
@@ -591,7 +716,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"error": "status는 '찾는 중' 또는 '찾았어요'여야 합니다"}, 400)
                 return
             notice["status"] = status
-            save_db(db)
+            save_db(notice["slug"])
             self._json(public_notice(notice))
             return
 
@@ -613,7 +738,7 @@ class Handler(BaseHTTPRequestHandler):
         for r in notice.get("reports", []):
             if r["id"] == rid:
                 r["status"] = status
-                save_db(db)
+                save_db(notice["slug"])
                 self._json(light_report(r))
                 return
         self._json({"error": "report not found"}, 404)
@@ -641,7 +766,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    load_db()  # 최초 실행 시 데이터 파일 생성 / 형식 이전
+    init_store()  # DB 또는 파일에서 데이터를 메모리에 올린다
     print(f"멍백홈 서버 시작: http://localhost:{PORT}")
     print(f"  첫 화면(공고 등록/관리)  http://localhost:{PORT}/")
     print(f"  데모 관리 화면           http://localhost:{PORT}/m/{DEMO_OWNER_KEY}")
