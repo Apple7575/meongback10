@@ -165,19 +165,42 @@ except ImportError:
     _pg = None
 
 
+def parse_db_url(url):
+    """연결 문자열을 직접 분해한다.
+
+    urlparse를 쓰지 않는 이유: 비밀번호에 대괄호가 들어 있으면 파이썬 3.13+ 의 urlparse가
+    호스트를 IPv6 주소로 착각해 'does not appear to be an IPv4 or IPv6 address' 로 실패한다.
+    (Supabase가 주는 [YOUR-PASSWORD] 자리표시자를 그대로 두면 바로 이 상황이 된다)
+    """
+    from urllib.parse import unquote
+    rest = url.split("://", 1)[1] if "://" in url else url
+    netloc, _, tail = rest.partition("/")
+    path, _, query = tail.partition("?")
+    cred, sep, hostport = netloc.rpartition("@")   # 비밀번호에 @ 가 있어도 마지막 @ 기준
+    if not sep:
+        cred, hostport = "", netloc
+    user, _, password = cred.partition(":")
+    if hostport.startswith("["):                   # 진짜 IPv6 주소
+        host, _, portpart = hostport[1:].partition("]")
+        port = portpart.lstrip(":")
+    else:
+        host, _, port = hostport.partition(":")
+    return {
+        "user": unquote(user), "password": unquote(password),
+        "host": host, "port": int(port or 5432),
+        "database": unquote(path) or "postgres",
+        "query": query,
+    }
+
+
 def _pg_connect():
     """Supabase·Neon 등 관리형 DB는 SSL이 필수, 로컬 DB는 보통 SSL이 없다 → 둘 다 지원."""
-    from urllib.parse import urlparse as _u, unquote, parse_qs
     import ssl
-    u = _u(DATABASE_URL)
-    host = u.hostname or ""
-    args = dict(
-        user=unquote(u.username or ""), password=unquote(u.password or ""),
-        host=host, port=u.port or 5432,
-        database=(u.path or "/postgres").lstrip("/") or "postgres",
-        timeout=15,
-    )
-    if (parse_qs(u.query).get("sslmode") or [""])[0] == "disable":
+    p = parse_db_url(DATABASE_URL)
+    host = p["host"]
+    args = dict(user=p["user"], password=p["password"], host=host,
+                port=p["port"], database=p["database"], timeout=15)
+    if "sslmode=disable" in p["query"]:
         return _pg.connect(**args)
     ctx = ssl.create_default_context()
     ctx.check_hostname = False          # 관리형 DB는 자체 인증서를 쓰는 경우가 많다
@@ -264,8 +287,13 @@ def init_store():
     """서버 시작 시 한 번. DB가 있으면 DB에서, 없으면 파일에서 읽어 메모리에 올린다."""
     global _DB, STORE, STORE_NOTE
     if DATABASE_URL:
+        placeholder = re.search(r"\[[^\]]*(PASSWORD|비밀번호)[^\]]*\]", DATABASE_URL, re.I)
         if _pg is None:
             STORE, STORE_NOTE = "file", "pg8000 미설치 — pip install pg8000 필요"
+        elif placeholder:
+            STORE = "file"
+            STORE_NOTE = (f"DATABASE_URL에 자리표시자 {placeholder.group(0)} 가 그대로 있어요. "
+                          "대괄호까지 지우고 실제 비밀번호로 바꿔주세요.")
         else:
             import traceback, sys as _sys
             last = ""
