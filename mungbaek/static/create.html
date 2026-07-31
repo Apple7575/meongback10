@@ -219,7 +219,7 @@ function updateCaution(){
 }
 
 /* ── 강아지 사진 ── */
-let dogPhoto=null;
+let dogPhoto=null, dogThumb=null;
 function resizeTo(img,max,q){
   const sc=Math.min(1,max/Math.max(img.width,img.height));
   const cv=document.createElement("canvas");
@@ -232,6 +232,7 @@ $("#dogPhoto").addEventListener("change",e=>{
   const img=new Image();
   img.onload=()=>{
     dogPhoto=resizeTo(img,900,0.85);
+    dogThumb=resizeTo(img,180,0.7);      // 목록용 작은 사진
     $("#photoPreview").innerHTML=`<img src="${dogPhoto}" alt="">`;
     $("#photoLabel").innerHTML=`${f.name}<br><b style="color:var(--navy)">탭해서 다른 사진 선택</b>`;
     URL.revokeObjectURL(img.src);
@@ -328,7 +329,7 @@ $("#submit").addEventListener("click",async()=>{
       body:JSON.stringify({
         dogName, breed:$("#breed").value.trim(), age:numUnit("#age","살"),
         weight:numUnit("#weight","kg"), personality:$("#personality").value.trim(),
-        health:$("#health").value.trim(), caution:cautionText(), photo:dogPhoto,
+        health:$("#health").value.trim(), caution:cautionText(), photo:dogPhoto, thumb:dogThumb,
         lostAt:$("#lostAt").value.slice(0,16), lostPlace:$("#lostPlace").value.trim(),
         lostX:picked.x, lostY:picked.y,
         centerLat:geoCenter.lat, centerLng:geoCenter.lng, pin,

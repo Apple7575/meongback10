@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>멍백홈 · 찾고 있는 강아지</title>
+<link rel="stylesheet" href="/common.css">
+<style>
+  .wrap{max-width:520px; margin:0 auto; padding:16px 16px 40px; display:grid; gap:12px}
+  .lead{margin:0; font-size:13.5px; color:var(--ink-soft); line-height:1.6; text-align:center}
+  .near-btn{display:inline-flex; align-items:center; justify-content:center; gap:7px; width:100%;
+    border:1.5px solid var(--line); background:var(--surface); border-radius:12px;
+    padding:12px; font-size:13.5px; font-weight:800; color:var(--navy)}
+  .list{display:grid; gap:10px}
+  .dog{display:flex; gap:13px; align-items:center; width:100%; text-align:left;
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:12px; text-decoration:none; color:inherit}
+  .dog:hover{border-color:var(--navy)}
+  .dog-img{width:64px;height:64px;border-radius:16px;flex:none;overflow:hidden;
+    background:linear-gradient(135deg,#FBE8CF,#F3D6B0); border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center}
+  .dog-img img{width:100%;height:100%;object-fit:cover}
+  .dog-img svg{width:46px;height:46px}
+  .dog-body{min-width:0;flex:1;display:grid;gap:3px}
+  .dog-name{font-size:16px;font-weight:800;letter-spacing:-.02em}
+  .dog-meta{font-size:12.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dog-where{font-size:12px;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dog-dist{font-size:11.5px;font-weight:800;color:var(--navy);
+    background:var(--navy-soft);border-radius:99px;padding:4px 9px;flex:none}
+  .empty{padding:36px 20px; text-align:center; color:var(--ink-faint); font-size:13.5px; line-height:1.7}
+  .foot{text-align:center; font-size:12.5px; color:var(--ink-faint)}
+  .foot a{color:var(--navy); font-weight:800; text-decoration:none}
+</style>
+</head>
+<body>
+
+<header class="mb">
+  <a class="logo" href="/">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 21c-3.5 0-6-2-6-4.6 0-2.9 2.8-5.9 6-5.9s6 3 6 5.9c0 2.6-2.5 4.6-6 4.6Z" fill="var(--navy)"/>
+      <circle cx="6.2" cy="8.6" r="2.1" fill="var(--navy)"/><circle cx="17.8" cy="8.6" r="2.1" fill="var(--navy)"/>
+      <circle cx="9.4" cy="4.9" r="2" fill="var(--navy)"/><circle cx="14.6" cy="4.9" r="2" fill="var(--navy)"/>
+    </svg>
+    멍백홈
+  </a>
+  <div class="page-name"><b>찾고 있는 강아지</b></div>
+</header>
+
+<div class="wrap">
+  <p class="lead">본 강아지를 골라 제보해주세요.</p>
+  <button class="near-btn" type="button" id="nearBtn">
+    <span class="ic" data-icon="crosshair"></span>가까운 순으로 보기
+  </button>
+  <div class="list" id="list"><div class="empty">불러오는 중…</div></div>
+  <p class="foot">내 강아지를 잃어버리셨나요? <a href="/new">공고 등록하기 →</a></p>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="/icons.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2600);}
+const dogSvg=`<svg viewBox="0 0 64 64" aria-hidden="true">
+  <ellipse cx="32" cy="38" rx="20" ry="18" fill="#FFFDF8"/>
+  <ellipse cx="14" cy="26" rx="8" ry="12" fill="#F5EEDF" transform="rotate(-18 14 26)"/>
+  <ellipse cx="50" cy="26" rx="8" ry="12" fill="#F5EEDF" transform="rotate(18 50 26)"/>
+  <circle cx="32" cy="30" r="15" fill="#FFFDF8"/>
+  <circle cx="26.5" cy="28" r="2.1" fill="#3A3A3A"/><circle cx="37.5" cy="28" r="2.1" fill="#3A3A3A"/>
+  <ellipse cx="32" cy="34.5" rx="3" ry="2.4" fill="#3A3A3A"/></svg>`;
+
+let dogs=[], myPos=null;
+
+/* 두 지점 사이 거리(km) */
+function distKm(a,b,c,d){
+  const R=6371, r=Math.PI/180;
+  const dLat=(c-a)*r, dLng=(d-b)*r;
+  const x=Math.sin(dLat/2)**2 + Math.cos(a*r)*Math.cos(c*r)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+const fmtDist=km=> km<1 ? Math.round(km*1000)+"m" : km.toFixed(1)+"km";
+
+function render(){
+  if(!dogs.length){
+    $("#list").innerHTML=`<div class="empty">아직 등록된 공고가 없어요.<br>강아지를 잃어버리셨다면 공고를 등록해주세요.</div>`;
+    return;
+  }
+  const rows=dogs.map(d=>{
+    const when=(d.lostAt||"").replace("T"," ").slice(5,16);
+    const dist=(myPos && d.centerLat) ? distKm(myPos.lat,myPos.lng,d.centerLat,d.centerLng) : null;
+    return {d, dist, html:`
+      <a class="dog" href="/r/${d.slug}">
+        <span class="dog-img">${d.thumb?`<img src="${d.thumb}" alt="">`:dogSvg}</span>
+        <span class="dog-body">
+          <span class="dog-name">${d.dogName}</span>
+          <span class="dog-meta">${d.breed||""} · ${d.age||""}</span>
+          <span class="dog-where">${when} · ${d.lostPlace||""}</span>
+        </span>
+        ${dist!==null?`<span class="dog-dist">${fmtDist(dist)}</span>`:""}
+      </a>`};
+  });
+  if(myPos) rows.sort((a,b)=>(a.dist??9e9)-(b.dist??9e9));
+  $("#list").innerHTML=rows.map(r=>r.html).join("");
+}
+
+fetch("/api/notices").then(r=>r.json()).then(list=>{ dogs=list; render(); })
+  .catch(()=>{ $("#list").innerHTML=`<div class="empty">목록을 불러오지 못했어요 — 새로고침해 주세요</div>`; });
+
+$("#nearBtn").addEventListener("click",()=>{
+  if(!navigator.geolocation){ toast("이 브라우저는 위치를 지원하지 않아요"); return; }
+  toast("현재 위치를 찾는 중…");
+  navigator.geolocation.getCurrentPosition(p=>{
+    myPos={lat:p.coords.latitude, lng:p.coords.longitude};
+    render();
+    toast("가까운 순으로 정렬했어요");
+  }, ()=>toast("위치 권한이 거부됐어요"), {enableHighAccuracy:true, timeout:8000, maximumAge:60000});
+});
+</script>
+</body>
+</html>

@@ -60,6 +60,7 @@ PAGES = {
     "/share": "share.html",
     "/new": "create.html",
     "/find": "claim.html",
+    "/dogs": "dogs.html",
 }
 
 DEMO_SLUG = "demo"
@@ -197,6 +198,22 @@ def light_report(r):
     return out
 
 
+def list_notice(n):
+    """목록용 — 목격자가 '내가 본 강아지'를 고를 수 있을 만큼만. 사진은 작은 것만."""
+    return {
+        "slug": n.get("slug"),
+        "dogName": n.get("dogName"),
+        "breed": n.get("breed"),
+        "age": n.get("age"),
+        "thumb": n.get("thumb"),
+        "lostPlace": n.get("lostPlace"),
+        "lostAt": n.get("lostAt"),
+        "centerLat": n.get("centerLat"),
+        "centerLng": n.get("centerLng"),
+        "reportCount": len(n.get("reports", [])),
+    }
+
+
 def public_notice(n):
     """비밀 필드를 뺀 공개용 공고 정보."""
     out = {k: v for k, v in n.items() if k not in SECRET_FIELDS}
@@ -280,6 +297,14 @@ class Handler(BaseHTTPRequestHandler):
                 if self._owner_ok(n):
                     out["isOwner"] = True
                 self._json(out)
+        elif path == "/api/notices":
+            # 아직 찾는 중인 공고 목록 — 목격자가 본 강아지를 고를 수 있게
+            with LOCK:
+                db = load_db()
+                items = [list_notice(n) for n in db["notices"].values()
+                         if n.get("status") != "찾았어요"]
+                items.sort(key=lambda x: x.get("lostAt") or "", reverse=True)
+                self._json(items[:60])
         elif path == "/api/reports":
             with LOCK:
                 db = load_db()
@@ -442,6 +467,7 @@ class Handler(BaseHTTPRequestHandler):
             "centerLat": geo("centerLat", 37.6447),
             "centerLng": geo("centerLng", 127.0763),
             "photo": img("photo"),      # 전단지에 쓰는 강아지 사진
+            "thumb": img("thumb"),      # 목록용 작은 사진
             "status": "찾는 중",
             "createdAt": datetime.now().strftime("%Y-%m-%dT%H:%M"),
             "ownerKey": owner_key,

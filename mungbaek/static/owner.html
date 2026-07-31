@@ -9,19 +9,6 @@
   .layout{display:grid; grid-template-columns:1fr 384px; gap:16px;
     max-width:1280px; margin:0 auto; padding:16px 20px 32px; align-items:start}
   .map-col{display:flex; flex-direction:column; gap:16px; min-width:0}
-  .map-note{position:absolute; top:12px; left:12px; z-index:5;
-    background:var(--surface); border:1px solid var(--line); border-radius:10px;
-    padding:8px 12px; font-size:12.5px; color:var(--ink-soft);
-    box-shadow:var(--shadow); max-width:min(300px, 62%)}
-  .map-note b{color:var(--navy)}
-  .legend{position:absolute; bottom:12px; left:12px; z-index:5;
-    background:var(--surface); border:1px solid var(--line); border-radius:10px;
-    padding:9px 12px; font-size:12px; color:var(--ink-soft); box-shadow:var(--shadow); display:grid; gap:5px}
-  .legend div{display:flex; align-items:center; gap:7px}
-  .lg-dot{width:10px;height:10px;border-radius:50%;flex:none}
-  .lg-zone{width:12px;height:12px;border-radius:3px;flex:none;
-    background:color-mix(in srgb, var(--zone) 22%, transparent);border:1.5px dashed var(--zone)}
-  .lg-star{color:var(--navy);font-size:13px;line-height:1;width:12px;text-align:center}
 
   .side{display:flex; flex-direction:column; gap:14px; min-width:0}
   .dog-card{padding:16px; display:grid; gap:12px}
@@ -139,6 +126,15 @@
     font-size:13.5px; font-weight:800; padding:11px 18px; border-radius:11px}
 
   .ghost-btn.on{background:var(--navy-soft)}
+  /* 상세는 접어두고 필요할 때만 (첫 화면에 글자를 줄이기 위해) */
+  .more-toggle{width:100%; padding:10px; border-radius:11px; font-size:12.5px; font-weight:800;
+    color:var(--ink-soft); background:var(--surface-2); display:flex;
+    align-items:center; justify-content:center; gap:6px}
+  .more-toggle .chev{transition:transform .2s}
+  .more-toggle[aria-expanded="true"] .chev{transform:rotate(180deg)}
+  .dog-more{display:grid; gap:12px}
+  .add-notice{font-size:12.5px; font-weight:700; color:var(--navy);
+    text-decoration:none; text-align:center; padding:4px}
   .found-btn{width:100%; padding:12px; border-radius:12px; font-size:13.5px; font-weight:800;
     border:1.5px solid var(--trust); color:var(--trust); background:var(--trust-bg)}
   .found-btn.done{border-color:var(--line); color:var(--ink-faint); background:var(--surface-2)}
@@ -152,6 +148,7 @@
   /* 여러 공고 전환 — 데스크톱·모바일 공통 */
   .notice-switch{display:flex; align-items:center; gap:7px; grid-column:1/-1;
     overflow-x:auto; scrollbar-width:none; padding:2px}
+  .notice-switch[hidden]{display:none}   /* display:flex 가 hidden 을 덮어써서 홀로 뜨던 문제 */
   .notice-switch::-webkit-scrollbar{display:none}
   .ns-list{display:flex; gap:7px; flex:1; min-width:0}
   .ns-tab{flex:none; display:inline-flex; align-items:center; gap:7px; cursor:pointer;
@@ -168,7 +165,6 @@
   /* 모바일 전용 요소 — 데스크톱에선 숨김 */
   .m-strip, .m-actions, .map-hint{display:none}
 
-  .sheet-handle{display:none}
   @media (max-width: 960px){
     /* ── 요약 스트립: 누구를 찾는 중인지 항상 보이게 ── */
     .m-strip{display:flex; align-items:center; gap:11px; width:100%; text-align:left;
@@ -194,8 +190,9 @@
     .m-act.primary{background:var(--navy); color:var(--on-navy); border-color:var(--navy)}
     .m-act.on{background:var(--pending); border-color:var(--pending); color:#fff}
 
-    /* 지도 위 안내 */
-    .map-hint{display:block; position:absolute; top:10px; left:10px; right:10px; z-index:5;
+    /* 지도 위 안내 — 지금 할 일이 있을 때만 띄운다 (평소엔 지도를 가리지 않게) */
+    .addmode-on .map-hint{display:block}
+    .map-hint{display:none; position:absolute; top:10px; left:10px; right:10px; z-index:5;
       background:color-mix(in srgb, var(--surface) 92%, transparent);
       border:1px solid var(--line); border-radius:10px; padding:6px 10px;
       font-size:11.5px; font-weight:700; color:var(--ink-soft); text-align:center;
@@ -203,42 +200,23 @@
     .map-hint b{color:var(--navy)}
   }
   @media (max-width: 960px){
-    body{padding-bottom:220px}
-    .layout{grid-template-columns:1fr; padding:12px 12px 0; gap:12px}
-    .map-note{display:none}
-    /* 작은 지도를 가리지 않도록 범례를 가로 한 줄로 압축 */
-    .legend{font-size:10px; padding:6px 9px; bottom:8px; left:8px;
-      display:flex; flex-wrap:wrap; gap:3px 10px; max-width:calc(100% - 16px)}
-    .lg-dot{width:8px;height:8px} .lg-zone{width:10px;height:10px}
+    /* 헤더 아이콘과 본문 버튼이 같은 일을 해서 헷갈렸음 — 본문 버튼만 남긴다 */
+    .header-right #addBtn, .header-right a.navy-btn{display:none}
+    .layout{grid-template-columns:1fr; padding:12px 12px 28px; gap:12px}
     .side{display:contents}
-    /* 순서: 공고 전환(-5) → 요약 스트립(-4) → 지도(-3) → 행동(-2) → 수색 안내(-1) → 상세(0) */
+    /* 순서: 공고 전환 → 요약 → 지도 → 행동 → 수색 안내 → 제보 목록 → 강아지 상세 */
     .notice-switch{order:-5}
     .map-col{order:-3}
     .zone-wrap{order:-1}
-    .dog-card-wrap{order:0}
-    .report-wrap{position:fixed; left:0; right:0; bottom:0; z-index:50;
-      border-radius:18px 18px 0 0; border-bottom:none;
-      box-shadow:0 -8px 30px rgba(20,44,78,.18);
-      max-height:200px; transition:max-height .3s ease;
-      display:flex; flex-direction:column; overflow:hidden}
-    .report-wrap.expanded{max-height:80dvh}
-    /* 접힌 상태(200px)에서도 제보 목록이 보이도록 머리 부분을 압축 */
-    .report-head{padding:10px 14px 6px; flex:none}
-    .sort-note{display:none}
-    .report-wrap.expanded .sort-note{display:block}
-    /* flex:none — 시트 높이가 모자랄 때 필터가 세로로 눌려 글자가 잘리던 문제 방지 */
-    .filters{padding:8px 14px; flex:none; flex-wrap:nowrap;
+    .report-wrap{order:0}      /* 바텀시트 없이 흐름대로 (고정 시트는 쓰기 불편) */
+    .dog-card-wrap{order:1}
+    .report-head{padding:12px 14px 6px}
+    .filters{padding:8px 14px; flex-wrap:nowrap;
       overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none}
     .filters::-webkit-scrollbar{display:none}
-    .report-wrap.expanded .filters{flex-wrap:wrap}
     .filters .chip{flex:none}
-    .report-list{min-height:0}   /* flex 자식이 제대로 줄어들도록 */
-    .sheet-handle{display:block; width:100%; padding:9px 0 3px; flex:none}
-    .sheet-handle::before{content:""; display:block; width:42px; height:4.5px; border-radius:99px;
-      background:var(--line); margin:0 auto}
-    .report-list{max-height:none; flex:1}
-    .dog-facts{grid-template-columns:repeat(4,1fr)}
-    .fact:nth-child(n+5){display:none}
+    .report-list{max-height:none}
+    .dog-facts{grid-template-columns:1fr 1fr}
   }
   @media (max-width: 600px){
     /* 지도는 크되 화면을 다 먹지 않게 — 스트립·버튼·제보 목록이 함께 보이도록 */
@@ -295,11 +273,11 @@
     </p>
     <a class="landing-cta" href="/new">유실 공고 등록하기</a>
     <div class="landing-alt">
+      <a href="/dogs">강아지를 봤어요 — 목격 제보하기</a>
       <a href="/find">이미 공고를 만들었어요 — 내 공고 찾기</a>
-      <a href="/m/demo-owner-key">데모 둘러보기</a>
     </div>
-    <p class="landing-note">멍백홈은 회원가입이 없어요. 공고를 만들면 나만의 관리 링크가 생기고,
-      링크를 잃어버려도 PIN 4자리로 다시 찾을 수 있어요.</p>
+    <p class="landing-note">회원가입이 없어요. 공고를 만들면 이 기기가 기억하고,
+      기기를 바꿔도 이름·나이 + PIN 4자리로 다시 찾을 수 있어요.</p>
   </div>
 </div>
 
@@ -338,18 +316,7 @@
   <div class="map-col">
     <div class="map-wrap">
       <div id="mapContainer"></div>
-      <div class="map-hint" id="mapHint">지도의 <b>핀</b>을 누르면 제보 내용을 볼 수 있어요</div>
-      <div class="map-note">
-        <b>실제 목격 시각</b> 기준으로 이동 경로를 연결합니다.<br>
-        숨김 처리한 제보는 지도에서 제외돼요.
-      </div>
-      <div class="legend" aria-label="지도 범례">
-        <div><span class="lg-star">★</span>마지막 목격 지점</div>
-        <div><span class="lg-dot" style="background:var(--trust)"></span>신뢰 제보</div>
-        <div><span class="lg-dot" style="background:var(--pending)"></span>확인 필요</div>
-        <div><span class="lg-dot" style="background:var(--important)"></span>중요 제보</div>
-        <div><span class="lg-zone"></span>우선 수색 구역</div>
-      </div>
+      <div class="map-hint" id="mapHint"></div>
     </div>
   </div>
 
@@ -376,10 +343,15 @@
           <div class="dog-meta" id="dogMeta"></div>
         </div>
       </div>
-      <div class="dog-facts" id="dogFacts"></div>
-      <div class="caution" id="dogCaution"></div>
-      <button class="found-btn" id="foundBtn" type="button"></button>
-      <a href="/new" style="font-size:12px;font-weight:700;color:var(--navy);text-decoration:none;text-align:center">＋ 다른 강아지 유실 공고 등록하기 →</a>
+      <button class="more-toggle" id="moreToggle" type="button" aria-expanded="false">
+        상세 정보 보기<span class="chev">⌄</span>
+      </button>
+      <div class="dog-more" id="dogMore" hidden>
+        <div class="dog-facts" id="dogFacts"></div>
+        <div class="caution" id="dogCaution"></div>
+        <button class="found-btn" id="foundBtn" type="button"></button>
+        <a class="add-notice" href="/new">＋ 다른 강아지 공고 등록</a>
+      </div>
     </section>
 
     <section class="card zone-card zone-wrap" aria-label="우선 수색 구역 안내">
@@ -392,10 +364,8 @@
     </section>
 
     <section class="card report-panel report-wrap" id="reportSheet" aria-label="목격 제보 목록">
-      <button class="sheet-handle" id="sheetHandle" type="button" aria-label="제보 목록 펼치기/접기"></button>
       <div class="report-head">
         <h3>목격 제보 <span class="cnt" id="reportCnt"></span></h3>
-        <div class="sort-note">제보 접수 순서가 아니라 <b>실제 목격 시각</b> 기준으로 정렬돼요</div>
       </div>
       <div class="filters" id="filters" role="group" aria-label="제보 상태 필터"></div>
       <ul class="report-list" id="reportList"></ul>
@@ -443,8 +413,9 @@
         <input type="time" id="addTime" style="width:100%;border:1.5px solid var(--line);border-radius:11px;background:var(--surface);padding:10px 12px;font-size:14px">
       </div>
       <div class="af">
-        <span class="afl">강아지가 간 방향</span>
-        <div class="dir8" id="dir8"></div>
+        <span class="afl">강아지가 간 방향 (선택)</span>
+        <button class="dir-drag" type="button" id="dirDrag">지도에서 끌어서 방향 정하기</button>
+        <div class="dir-now" id="dirNow">방향 없이 핀으로 표시돼요</div>
       </div>
       <div class="af">
         <label class="afl" for="addPlace">장소 설명</label>
@@ -471,10 +442,12 @@
 <style>
   .af{display:grid;gap:6px}
   .afl{font-size:12.5px;font-weight:800;color:var(--ink-soft)}
-  .dir8{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-  .dir8 button{padding:9px 4px;border-radius:10px;font-size:12.5px;font-weight:800;
-    border:1.5px solid var(--line);background:var(--surface);color:var(--ink-soft)}
-  .dir8 button.on{border-color:var(--navy);background:var(--navy-soft);color:var(--navy)}
+  .dir-drag{width:100%;padding:12px;border-radius:11px;font-size:13px;font-weight:800;
+    border:1.5px solid var(--navy);background:var(--surface);color:var(--navy)}
+  .dir-drag.on{background:var(--pending);border-color:var(--pending);color:#fff}
+  .dir-now{font-size:12px;font-weight:700;color:var(--ink-faint);text-align:center;
+    background:var(--surface-2);border-radius:9px;padding:8px}
+  .dir-now.set{color:var(--pending);background:var(--pending-bg)}
   .stat3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
   .stat3 button{padding:9px 4px;border-radius:10px;font-size:12.5px;font-weight:800;
     border:1.5px solid var(--line);background:var(--surface);color:var(--ink-soft)}
@@ -634,15 +607,16 @@ function renderMap(){
 function renderZoneCard(){
   const trail=trailReports();
   const latest=trail[trail.length-1];
-  if(!latest){
-    $("#zoneText").innerHTML="아직 신뢰 제보가 없어요. 새 제보가 오면 확인 후 <b>신뢰</b>로 표시해주세요.";
-    $("#zoneBasis").textContent=""; return;
-  }
+  const card=document.querySelector(".zone-wrap");
+  /* 알려줄 게 없으면 카드를 아예 숨긴다 (빈 안내문도 화면을 어지럽힘) */
+  if(!latest){ card.hidden=true; return; }
+  card.hidden=false;
   const dirTxt=latest.dir.includes("확인 안")||latest.dir.includes("머물")
-    ?"주변 반경 300m 안쪽"
+    ?"주변 반경 300m"
     :latest.dir.replace("으로 이동","").replace("로 이동","")+" 500m 구간";
-  $("#zoneText").innerHTML=`최근 신뢰 제보는 <b>${latest.seenAt} ${latest.place}</b>입니다.<br>지금은 <b>${dirTxt}</b>을 우선 확인해보세요.`;
-  $("#zoneBasis").textContent=`기준: 신뢰·중요 제보 ${trail.length}건 중 가장 최근 목격(${latest.seenAt}) · MVP 안내 기능`;
+  $("#zoneText").innerHTML=`<b>${dirTxt}</b>을 먼저 확인해보세요.<br>
+    <span style="color:var(--ink-faint);font-size:12.5px">최근 신뢰 제보 ${latest.seenAt} ${latest.place}</span>`;
+  $("#zoneBasis").textContent="";
 }
 
 function renderFilters(){
@@ -748,11 +722,61 @@ $("#notifBtn").addEventListener("click",async()=>{
 function markNotifOn(){ $("#notifLbl").textContent="알림 켜짐"; $("#notifBtn").classList.add("on"); }
 if(("Notification" in window)&&Notification.permission==="granted") markNotifOn();
 
-$("#sheetHandle").addEventListener("click",()=>$("#reportSheet").classList.toggle("expanded"));
 
 /* ── 보호자 직접 제보 추가 ── */
 let addMode=false, addPick=null, addBearing=null, addStatusVal="trusted";
-const DIR8=[["북서",315],["북",0],["북동",45],["서",270],["없음",null],["동",90],["남서",225],["남",180],["남동",135]];
+let dirDragOn=false, dirHandlers=null;
+
+/* 지도에서 끌어 방향 정하기 — 목격자 화면과 같은 방식 */
+function startDirDrag(){
+  if(!engine || !engine.element || !addPick) return;
+  if(dirDragOn){ stopDirDrag(); return; }
+  dirDragOn=true;
+  $("#dirDrag").classList.add("on");
+  $("#dirDrag").textContent="지도에서 끌어주세요 (다시 누르면 끝)";
+  $("#addOverlay").classList.remove("open");    // 지도가 보이게 잠시 닫는다
+  engine.lockPan && engine.lockPan(true);
+  const el=engine.element(); el.style.cursor="crosshair";
+  toast("강아지가 간 쪽으로 지도를 끌어주세요");
+  let dragging=false;
+  const upd=e=>{
+    const t=e.touches?e.touches[0]:e;
+    const p=engine.clientToXy(t.clientX,t.clientY);
+    if(p.x===addPick.x && p.y===addPick.y) return;
+    addBearing=MapEngine.bearingFromXY(addPick.x,addPick.y,p.x,p.y);
+    engine.setMarker(addPick.x,addPick.y,addBearing);
+  };
+  const down=e=>{dragging=true; upd(e); e.preventDefault();};
+  const move=e=>{if(dragging){upd(e); e.preventDefault();}};
+  const up=()=>{ if(!dragging) return; dragging=false; stopDirDrag(); $("#addOverlay").classList.add("open"); };
+  dirHandlers={el,down,move,up};
+  el.addEventListener("pointerdown",down);
+  el.addEventListener("pointermove",move);
+  window.addEventListener("pointerup",up);
+  el.addEventListener("touchstart",down,{passive:false});
+  el.addEventListener("touchmove",move,{passive:false});
+  window.addEventListener("touchend",up);
+}
+function stopDirDrag(){
+  if(dirHandlers){
+    const {el,down,move,up}=dirHandlers;
+    el.removeEventListener("pointerdown",down); el.removeEventListener("pointermove",move);
+    window.removeEventListener("pointerup",up);
+    el.removeEventListener("touchstart",down); el.removeEventListener("touchmove",move);
+    window.removeEventListener("touchend",up);
+    el.style.cursor="";
+  }
+  engine && engine.lockPan && engine.lockPan(false);
+  dirHandlers=null; dirDragOn=false;
+  $("#dirDrag").classList.remove("on");
+  $("#dirDrag").textContent = addBearing===null ? "지도에서 끌어서 방향 정하기" : "방향 다시 정하기";
+  updateDirNow();
+}
+function updateDirNow(){
+  const el=$("#dirNow");
+  if(addBearing===null){ el.textContent="방향 없이 핀으로 표시돼요"; el.classList.remove("set"); }
+  else{ el.textContent=`${MapEngine.bearingToKo(addBearing)} (${addBearing}°)`; el.classList.add("set"); }
+}
 
 function toggleAddMode(){
   addMode=!addMode;
@@ -760,9 +784,7 @@ function toggleAddMode(){
   engine&&engine.setPickable&&engine.setPickable(addMode);
   $("#addBtn").classList.toggle("on", addMode);
   $("#mAddBtn").classList.toggle("on", addMode);
-  $("#mapHint").innerHTML = addMode
-    ? "강아지를 본 위치를 <b>지도에서 탭</b>하세요"
-    : "지도의 <b>핀</b>을 누르면 제보 내용을 볼 수 있어요";
+  $("#mapHint").innerHTML = addMode ? "강아지를 본 위치를 <b>지도에서 탭</b>하세요" : "";
   if(addMode){
     toast("지도에서 강아지를 본 위치를 탭하세요 (다시 누르면 취소)");
     document.querySelector(".map-wrap").scrollIntoView({behavior:"smooth",block:"center"});
@@ -770,6 +792,14 @@ function toggleAddMode(){
 }
 $("#addBtn").addEventListener("click",toggleAddMode);
 $("#mAddBtn").addEventListener("click",toggleAddMode);
+/* 상세 정보 접기/펼치기 */
+$("#moreToggle").addEventListener("click",()=>{
+  const open=$("#dogMore").hidden;
+  $("#dogMore").hidden=!open;
+  $("#moreToggle").setAttribute("aria-expanded", String(open));
+  $("#moreToggle").firstChild.textContent = open ? "상세 정보 접기" : "상세 정보 보기";
+});
+
 /* 찾았어요 — 수색 종료 / 재개 */
 $("#foundBtn").addEventListener("click",async()=>{
   const found = notice.status==="찾았어요";
@@ -816,15 +846,9 @@ function openAdd(p){
   $("#addTime").value=String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
   $("#addLoc").innerHTML=`<span class="ic">${Icons.svg("map-pin")}</span> 지도에 찍은 위치 — 방향을 고르면 화살표로 표시돼요`;
   $("#addPlace").value=""; $("#addMemo").value=""; $("#addContact").checked=false;
-  // 방향 8칸
-  $("#dir8").innerHTML=DIR8.map(([label,deg])=>
-    `<button type="button" data-deg="${deg===null?'':deg}" class="${deg===null?'on':''}">${label}</button>`).join("");
-  $("#dir8").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
-    addBearing=b.dataset.deg===""?null:+b.dataset.deg;
-    $("#dir8").querySelectorAll("button").forEach(o=>o.classList.remove("on"));
-    b.classList.add("on");
-    engine.setMarker(addPick.x, addPick.y, addBearing);
-  }));
+  $("#dirDrag").textContent="지도에서 끌어서 방향 정하기";
+  $("#dirDrag").classList.remove("on");
+  updateDirNow();
   // 상태 3칸
   const STAT=[["trusted","신뢰"],["important","중요"],["pending","확인 필요"]];
   $("#addStatus").innerHTML=STAT.map(([k,l])=>
@@ -837,8 +861,13 @@ function openAdd(p){
   engine.setMarker(addPick.x, addPick.y, null);
   $("#addOverlay").classList.add("open");
 }
-function closeAdd(){ $("#addOverlay").classList.remove("open"); engine&&engine.clearMarker&&engine.clearMarker(); renderMap(); }
+function closeAdd(){
+  stopDirDrag();
+  $("#addOverlay").classList.remove("open");
+  engine&&engine.clearMarker&&engine.clearMarker(); renderMap();
+}
 $("#addClose").addEventListener("click",closeAdd);
+$("#dirDrag").addEventListener("click",startDirDrag);
 $("#addOverlay").addEventListener("click",e=>{if(e.target===e.currentTarget)closeAdd();});
 
 $("#addSave").addEventListener("click",async()=>{
