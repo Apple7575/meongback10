@@ -277,11 +277,18 @@ def init_store():
                     break
                 except Exception as e:      # 네트워크·인증 실패 등
                     tb = traceback.format_exc().strip().splitlines()
-                    where = " << ".join(l.strip() for l in tb[-4:-1])
-                    last = f"{type(e).__name__}: {e} @ {where}"
+                    # 어느 파일 어느 줄에서 났는지까지 남긴다 (원인 파악용)
+                    frames = [l.strip().replace("/opt/render/project/", "")
+                              for l in tb if l.strip().startswith("File ")]
+                    last = f"{type(e).__name__}: {e} @@ " + " << ".join(frames[-6:])
             if STORE != "postgres":
+                try:
+                    import pg8000 as _p8
+                    ver = getattr(_p8, "__version__", "?")
+                except Exception:
+                    ver = "?"
                 STORE_NOTE = (f"DB 연결 실패 — 파일로 동작 중 "
-                              f"[py{_sys.version.split()[0]}] " + last[:600])
+                              f"[py{_sys.version.split()[0]} pg8000:{ver}] " + last[:900])
     if _DB is None:
         _DB, changed = _read_file()
         if changed:
