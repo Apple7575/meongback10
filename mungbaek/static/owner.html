@@ -17,6 +17,7 @@
     background:linear-gradient(135deg,#FBE8CF,#F3D6B0);
     display:flex; align-items:center; justify-content:center; border:1px solid var(--line); overflow:hidden}
   .dog-photo svg{width:58px; height:58px}
+  .dog-photo img{width:100%; height:100%; object-fit:cover; display:block}
   .dog-name-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
   .dog-name{font-size:19px; font-weight:800; letter-spacing:-.02em}
   .status-badge{font-size:11.5px; font-weight:800; color:var(--important);
@@ -133,6 +134,7 @@
   .more-toggle .chev{transition:transform .2s}
   .more-toggle[aria-expanded="true"] .chev{transform:rotate(180deg)}
   .dog-more{display:grid; gap:12px}
+  .dog-more[hidden]{display:none}   /* display:grid 가 hidden 을 덮어써 접기가 안 먹던 문제 */
   .add-notice{font-size:12.5px; font-weight:700; color:var(--navy);
     text-decoration:none; text-align:center; padding:4px}
   .edit-btn{display:block; width:100%; padding:12px; border-radius:12px; text-align:center;
@@ -178,6 +180,7 @@
       background:linear-gradient(135deg,#FBE8CF,#F3D6B0); border:1px solid var(--line);
       display:flex;align-items:center;justify-content:center}
     .m-strip-photo svg{width:36px;height:36px}
+    .m-strip-photo img{width:100%;height:100%;object-fit:cover;display:block}
     .m-strip-body{min-width:0;flex:1;display:grid;gap:2px}
     .m-strip-top{display:flex;align-items:center;gap:7px}
     .m-strip-top b{font-size:16px;font-weight:800;letter-spacing:-.02em}
@@ -288,7 +291,7 @@
 <div class="layout" id="layout">
   <!-- 모바일 전용: 화면을 열자마자 "누구를 찾는 중인지 / 지금 뭘 하면 되는지" 보이게 -->
   <button class="m-strip" id="mStrip" type="button" aria-label="강아지 정보 자세히 보기">
-    <span class="m-strip-photo" aria-hidden="true">
+    <span class="m-strip-photo" id="mStripPhoto" aria-hidden="true">
       <svg viewBox="0 0 64 64">
         <ellipse cx="32" cy="38" rx="20" ry="18" fill="#FFFDF8"/>
         <ellipse cx="14" cy="26" rx="8" ry="12" fill="#F5EEDF" transform="rotate(-18 14 26)"/>
@@ -327,7 +330,7 @@
   <aside class="side">
     <section class="card dog-card dog-card-wrap" aria-label="강아지 정보">
       <div class="dog-head">
-        <div class="dog-photo" aria-hidden="true">
+        <div class="dog-photo" id="dogPhotoBox" aria-hidden="true">
           <svg viewBox="0 0 64 64">
             <ellipse cx="32" cy="38" rx="20" ry="18" fill="#FFFDF8"/>
             <ellipse cx="14" cy="26" rx="8" ry="12" fill="#F5EEDF" transform="rotate(-18 14 26)"/>
@@ -464,6 +467,7 @@
 
 <script src="/icons.js"></script>
 <script src="/session.js"></script>
+<script src="/nav.js" data-nav="home"></script>
 <script src="/config.js"></script>
 <script src="/mapengine.js"></script>
 <script>
@@ -534,6 +538,13 @@ async function loadNotice(){
     <div class="fact"><div class="k">성격</div><div class="v">${esc(notice.personality)}</div></div>
     <div class="fact"><div class="k">건강</div><div class="v">${esc(notice.health)}</div></div>`;
   $("#dogCaution").innerHTML=`<b>발견 시 주의</b> · ${esc(notice.caution)}`;
+  /* 등록한 사진이 있으면 기본 그림 대신 실제 사진을 보여준다 */
+  const pic=notice.thumb||notice.photo;
+  if(pic){
+    const img=`<img src="${esc(pic)}" alt="${esc(notice.dogName)}">`;
+    $("#dogPhotoBox").innerHTML=img;
+    $("#mStripPhoto").innerHTML=img;
+  }
   /* 모바일 요약 스트립 */
   $("#mStripName").textContent=notice.dogName;
   $("#mStripStatus").textContent=notice.status;

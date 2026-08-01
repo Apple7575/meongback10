@@ -59,6 +59,7 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script src="/icons.js"></script>
+<script src="/nav.js" data-nav="dogs"></script>
 <script>
 const $=s=>document.querySelector(s);
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2600);}

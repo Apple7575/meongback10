@@ -81,6 +81,7 @@ PAGES = {
     "/new": "create.html",
     "/find": "claim.html",
     "/dogs": "dogs.html",
+    "/mine": "mine.html",
 }
 
 DEMO_SLUG = "demo"
