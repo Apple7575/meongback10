@@ -12,10 +12,12 @@
   .w-title{margin:0; font-size:18px; font-weight:800; letter-spacing:-.02em; text-align:center}
   .w-sub{margin:0; font-size:13px; color:var(--ink-soft); text-align:center}
   .w-dog{display:flex; gap:12px; align-items:center}
-  .dog-photo{width:56px;height:56px;border-radius:14px;flex:none;
+  /* 목격자에겐 사진이 가장 중요한 단서라 넉넉하게 */
+  .dog-photo{width:80px;height:80px;border-radius:18px;flex:none;
     background:linear-gradient(135deg,#FBE8CF,#F3D6B0);
     display:flex;align-items:center;justify-content:center;border:1px solid var(--line);overflow:hidden}
-  .dog-photo svg{width:44px;height:44px}
+  .dog-photo svg{width:62px;height:62px}
+  .dog-photo img{width:100%;height:100%;object-fit:cover;display:block}
   .w-dog-name{font-size:16px; font-weight:800}
   .w-dog-meta{font-size:12.5px; color:var(--ink-soft)}
   .field{display:grid; gap:6px}
@@ -116,7 +118,7 @@
     <p class="w-sub">30초면 충분해요. 위치와 시간만 알려주셔도 큰 힘이 됩니다.</p>
 
     <div class="w-dog">
-      <div class="dog-photo" aria-hidden="true">
+      <div class="dog-photo" id="wDogPhoto" aria-hidden="true">
         <svg viewBox="0 0 64 64">
           <ellipse cx="32" cy="38" rx="20" ry="18" fill="#FFFDF8"/>
           <ellipse cx="14" cy="26" rx="8" ry="12" fill="#F5EEDF" transform="rotate(-18 14 26)"/>
@@ -270,6 +272,9 @@ fetch("/api/notice?slug="+encodeURIComponent(slug)).then(r=>{
   $("#wDogName").innerHTML=`${esc(n.dogName)} <span class="badge b-important">${esc(n.status)}</span>`;
   $("#wDogMeta").textContent=`${n.breed} · ${n.weight} · ${n.personality}`;
   $("#wCaution").innerHTML=`<b>잡으려 하지 마세요!</b> ${esc(n.caution)}`;
+  /* 목격자가 실제 강아지를 알아볼 수 있게 등록된 사진을 보여준다 */
+  const pic=n.photo||n.thumb;
+  if(pic) $("#wDogPhoto").innerHTML=`<img src="${esc(pic)}" alt="${esc(n.dogName)}">`;
   document.title=`멍백홈 · ${n.dogName} 목격 제보`;
   MapEngine.setGeoCenter(n.centerLat, n.centerLng);
   MapEngine.create(document.getElementById("miniMapContainer"),
