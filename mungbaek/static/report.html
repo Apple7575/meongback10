@@ -267,9 +267,9 @@ fetch("/api/notice?slug="+encodeURIComponent(slug)).then(r=>{
 }).then(n=>{
   notice=n;
   $("#wTitle").textContent=`${n.dogName}를 목격하셨나요?`;
-  $("#wDogName").innerHTML=`${n.dogName} <span class="badge b-important">${n.status}</span>`;
+  $("#wDogName").innerHTML=`${esc(n.dogName)} <span class="badge b-important">${esc(n.status)}</span>`;
   $("#wDogMeta").textContent=`${n.breed} · ${n.weight} · ${n.personality}`;
-  $("#wCaution").innerHTML=`<b>잡으려 하지 마세요!</b> ${n.caution}`;
+  $("#wCaution").innerHTML=`<b>잡으려 하지 마세요!</b> ${esc(n.caution)}`;
   document.title=`멍백홈 · ${n.dogName} 목격 제보`;
   MapEngine.setGeoCenter(n.centerLat, n.centerLng);
   MapEngine.create(document.getElementById("miniMapContainer"),
@@ -501,7 +501,7 @@ $("#wSubmit").addEventListener("click",async()=>{
         photo:photoData, thumb:thumbData, source:"witness",
       })});
     if(!res.ok) throw new Error(await res.text());
-    if(notice) $("#doneMsg").innerHTML=`${notice.dogName} 보호자에게 방금 알림이 갔어요.<br>덕분에 ${notice.dogName}가 집에 갈 확률이 높아졌습니다. 감사합니다!`;
+    if(notice) $("#doneMsg").innerHTML=`${esc(notice.dogName)} 보호자에게 방금 알림이 갔어요.<br>덕분에 ${esc(notice.dogName)}가 집에 갈 확률이 높아졌습니다. 감사합니다!`;
     $("#witnessForm").style.display="none";
     $("#witnessDone").classList.add("show");
     window.scrollTo({top:0,behavior:"smooth"});

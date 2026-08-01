@@ -57,6 +57,12 @@
   }
 
   window.Icons = { svg, paint, has: n => !!P[n] };
+
+  /* 사용자가 입력한 글자를 화면에 넣기 전에 반드시 통과시킨다.
+     목격자가 적은 장소·메모에 <img onerror=...> 같은 걸 넣어도 글자로만 보이게 한다. */
+  window.esc = (v) => String(v == null ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", () => paint());
   else paint();

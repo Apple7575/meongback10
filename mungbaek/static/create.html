@@ -150,7 +150,7 @@
     </div>
   </div>
 
-  <div class="card c-card">
+  <div class="card c-card" id="pinCard">
     <h2>내 공고 관리용 PIN</h2>
     <p class="pin-why">
       멍백홈은 <b>회원가입이 없어요.</b> 이 브라우저가 자동으로 내 공고를 기억합니다.<br>
@@ -289,7 +289,7 @@ async function doSearch(){
     const list=await MapEngine.searchPlace(q);
     if(!list.length){ box.innerHTML='<div style="font-size:12.5px;color:var(--ink-faint);padding:6px">결과가 없어요 — 다르게 입력해보세요</div>'; return; }
     box.innerHTML=list.map((p,i)=>
-      `<button class="pr-item" type="button" data-i="${i}"><b>${p.name}</b><span>${p.address||""}</span></button>`).join("");
+      `<button class="pr-item" type="button" data-i="${i}"><b>${esc(p.name)}</b><span>${esc(p.address||"")}</span></button>`).join("");
     box.querySelectorAll(".pr-item").forEach(b=>b.addEventListener("click",()=>{
       const p=list[+b.dataset.i];
       moveTo(p.lat,p.lng);
@@ -304,17 +304,65 @@ async function doSearch(){
 $("#placeGo").addEventListener("click",doSearch);
 $("#placeQ").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); doSearch(); }});
 
-MapEngine.create(document.getElementById("miniMapContainer"),
-  {mode:"pick", onPick:p=>setLoc(p.x,p.y)}, eng=>{ engine=eng; useCurrentLocation(false); });
-
 $("#useLoc").addEventListener("click",()=>useCurrentLocation(true));
-
 $("#pin").addEventListener("input",e=>{ e.target.value=e.target.value.replace(/\D/g,"").slice(0,4); });
+
+/* ── 수정 모드 ──
+   /new?edit=<공고id> 로 들어오면 기존 내용을 채워두고 저장 시 수정한다.
+   내가 가진 공고일 때만 동작한다. */
+const editSlug=new URLSearchParams(location.search).get("edit");
+const editing=editSlug && MB.find(editSlug);
+const SUBMIT_LABEL = editing ? "수정 내용 저장" : "공고 등록하고 제보 링크 만들기";
+
+function numOnly(v){ const m=String(v||"").match(/[\d.]+/); return m?m[0]:""; }
+
+async function startEdit(){
+  document.title="멍백홈 · 공고 수정";
+  document.querySelector(".page-name").innerHTML="<b>공고 수정</b> · 잘못 적은 내용을 고칠 수 있어요";
+  document.querySelector(".intro").textContent="고칠 내용만 바꾸고 저장하세요. 제보 링크와 QR은 그대로 유지돼요.";
+  $("#submit").textContent=SUBMIT_LABEL;
+  $("#pinCard").hidden=true;                 // 수정할 땐 PIN을 다시 묻지 않는다
+  try{
+    const n=await (await fetch("/api/notice?slug="+encodeURIComponent(editSlug))).json();
+    $("#dogName").value=n.dogName||"";
+    $("#breed").value=(n.breed==="믹스"?"":n.breed)||"";
+    $("#age").value=numOnly(n.age); $("#weight").value=numOnly(n.weight);
+    $("#personality").value=(n.personality==="정보 없음"?"":n.personality)||"";
+    $("#health").value=(n.health==="특이사항 없음"?"":n.health)||"";
+    $("#lostAt").value=(n.lostAt||"").slice(0,16);
+    $("#lostPlace").value=(n.lostPlace==="지도에 찍은 위치"?"":n.lostPlace)||"";
+    if(n.photo){
+      dogPhoto=n.photo; dogThumb=n.thumb||null;
+      $("#photoPreview").innerHTML=`<img src="${n.photo}" alt="">`;
+      $("#photoLabel").innerHTML='등록된 사진이 있어요<br><b style="color:var(--navy)">탭해서 바꾸기</b>';
+    }
+    /* 안내 문구: 고른 항목은 체크로 되살리고, 나머지는 직접 입력칸으로 */
+    let rest=(n.caution||"");
+    $("#cautionPicks").querySelectorAll("input").forEach(cb=>{
+      const t=CAUTIONS[+cb.dataset.i];
+      if(rest.includes(t)){ cb.checked=true; cb.closest(".pick").classList.add("on"); rest=rest.replace(t,"").trim(); }
+    });
+    $("#caution").value=rest;
+    updateCaution();
+    /* 지도를 기존 위치로 */
+    geoCenter={lat:n.centerLat, lng:n.centerLng};
+    MapEngine.setGeoCenter(n.centerLat, n.centerLng);
+    MapEngine.create(document.getElementById("miniMapContainer"),
+      {mode:"pick", onPick:p=>setLoc(p.x,p.y)}, eng=>{ engine=eng; setLoc(n.lostX, n.lostY); });
+    $("#miniHint").textContent="등록된 위치예요 — 바꾸려면 지도를 탭하세요";
+  }catch(e){
+    toast("공고를 불러오지 못했어요");
+  }
+}
+
+if(editing) startEdit();
+else MapEngine.create(document.getElementById("miniMapContainer"),
+  {mode:"pick", onPick:p=>setLoc(p.x,p.y)}, eng=>{ engine=eng; useCurrentLocation(false); });
 
 $("#submit").addEventListener("click",async()=>{
   const dogName=$("#dogName").value.trim();
   const pin=$("#pin").value.trim();
-  if(!dogName || !picked || !/^\d{4}$/.test(pin)){
+  if(!dogName || !picked || (!editing && !/^\d{4}$/.test(pin))){
     $("#formErr").textContent = !dogName ? "강아지 이름을 입력해주세요."
       : !picked ? "지도에서 마지막으로 본 위치를 찍어주세요."
       : "관리용 PIN을 숫자 4자리로 정해주세요.";
@@ -323,25 +371,36 @@ $("#submit").addEventListener("click",async()=>{
       .scrollIntoView({behavior:"smooth",block:"center"});
     return;
   }
-  const btn=$("#submit"); btn.disabled=true; btn.textContent="등록 중…";
+  const btn=$("#submit"); btn.disabled=true; btn.textContent=editing?"저장 중…":"등록 중…";
+  const payload={
+    dogName, breed:$("#breed").value.trim(), age:numUnit("#age","살"),
+    weight:numUnit("#weight","kg"), personality:$("#personality").value.trim(),
+    health:$("#health").value.trim(), caution:cautionText(), photo:dogPhoto, thumb:dogThumb,
+    lostAt:$("#lostAt").value.slice(0,16), lostPlace:$("#lostPlace").value.trim(),
+    lostX:picked.x, lostY:picked.y,
+    centerLat:geoCenter.lat, centerLng:geoCenter.lng,
+  };
   try{
-    const res=await fetch("/api/notice",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        dogName, breed:$("#breed").value.trim(), age:numUnit("#age","살"),
-        weight:numUnit("#weight","kg"), personality:$("#personality").value.trim(),
-        health:$("#health").value.trim(), caution:cautionText(), photo:dogPhoto, thumb:dogThumb,
-        lostAt:$("#lostAt").value.slice(0,16), lostPlace:$("#lostPlace").value.trim(),
-        lostX:picked.x, lostY:picked.y,
-        centerLat:geoCenter.lat, centerLng:geoCenter.lng, pin,
-      })});
-    if(!res.ok) throw new Error((await res.json().catch(()=>({}))).error || "실패");
-    const data=await res.json();
-    MB.add(data.slug, data.ownerKey, data.notice.dogName);   // 기존 공고는 그대로, 새 공고를 추가
-    toast("공고가 등록됐어요! 공유 화면으로 이동합니다");
-    setTimeout(()=>location.href="/share?slug="+encodeURIComponent(data.slug), 900);
+    if(editing){
+      const res=await fetch("/api/notice?slug="+encodeURIComponent(editSlug),
+        {method:"PATCH", headers:MB.authHeaders({"Content-Type":"application/json"}, editSlug),
+         body:JSON.stringify(payload)});
+      if(!res.ok) throw new Error((await res.json().catch(()=>({}))).error || "실패");
+      toast("수정했어요!");
+      setTimeout(()=>location.href="/", 800);
+    }else{
+      const res=await fetch("/api/notice",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({...payload, pin})});
+      if(!res.ok) throw new Error((await res.json().catch(()=>({}))).error || "실패");
+      const data=await res.json();
+      MB.add(data.slug, data.ownerKey, data.notice.dogName);   // 기존 공고는 그대로, 새 공고를 추가
+      toast("공고가 등록됐어요! 공유 화면으로 이동합니다");
+      setTimeout(()=>location.href="/share?slug="+encodeURIComponent(data.slug), 900);
+    }
   }catch(err){
-    toast(String(err.message||"").includes("PIN") ? "PIN은 숫자 4자리로 정해주세요" : "등록에 실패했어요 — 입력을 확인해주세요");
-    btn.disabled=false; btn.textContent="공고 등록하고 제보 링크 만들기";
+    toast(String(err.message||"").includes("PIN") ? "PIN은 숫자 4자리로 정해주세요"
+      : (editing?"저장에 실패했어요":"등록에 실패했어요 — 입력을 확인해주세요"));
+    btn.disabled=false; btn.textContent=SUBMIT_LABEL;
   }
 });
 </script>

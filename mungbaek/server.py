@@ -32,6 +32,26 @@ IP_MAX_FAILS = 10          # 한 기기에서 실패 10회면
 IP_LOCK_SECONDS = 600      # 10분간 차단 (이름·나이·PIN 무작위 대입 방지)
 _IP_FAILS = {}             # ip → {count, until}
 
+# 도배 방지 — 한 기기가 짧은 시간에 만들 수 있는 개수
+LIMITS = {"report": (20, 60), "notice": (12, 3600)}   # 이름: (횟수, 초)
+_RATE = {}                 # (ip, 이름) → [시각, ...]
+
+
+def rate_ok(ip, kind):
+    limit, window = LIMITS[kind]
+    now = now_ts()
+    key = (ip, kind)
+    hits = [t for t in _RATE.get(key, []) if now - t < window]
+    if len(hits) >= limit:
+        _RATE[key] = hits
+        return False
+    hits.append(now)
+    _RATE[key] = hits
+    if len(_RATE) > 5000:            # 메모리가 계속 늘지 않게 정리
+        for k in [k for k, v in _RATE.items() if not v or now - v[-1] > 3600]:
+            _RATE.pop(k, None)
+    return True
+
 try:
     import qrcode
     import qrcode.image.svg
@@ -121,6 +141,25 @@ def now_ts() -> float:
 def digits(v) -> str:
     """'7살' → '7' — 나이 비교를 느슨하게 하기 위해."""
     return re.sub(r"\D", "", str(v or ""))
+
+
+MAP_W, MAP_H = 820, 560
+
+
+def clamp_xy(x, y):
+    """지도 프레임 안으로 좌표를 가둔다. 숫자가 아니면 (None, None)."""
+    try:
+        cx = min(max(round(float(x)), 0), MAP_W)
+        cy = min(max(round(float(y)), 0), MAP_H)
+        return cx, cy
+    except (TypeError, ValueError):
+        return None, None
+
+
+def clean_time(v):
+    """'17:05' 형태만 통과. 아니면 None."""
+    s = str(v or "").strip()[:5]
+    return s if re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", s) else None
 
 
 # ── DB ─────────────────────────────────────────
@@ -356,10 +395,16 @@ def save_db(slug=None):
         _write_file(_DB)
 
 
-def light_report(r):
-    """목록·폴링용 — 사진 원본은 빼고 작은 썸네일만 (2초마다 원본을 다시 받지 않도록)."""
+def light_report(r, owner=False):
+    """목록·폴링용 — 사진 원본은 빼고 작은 썸네일만 (2초마다 원본을 다시 받지 않도록).
+
+    owner=False 이면 목격자가 남긴 연락처를 빼고 준다. 제보 화면에서
+    "번호는 보호자만 볼 수 있어요"라고 약속하므로 반드시 지켜야 한다.
+    """
     out = {k: v for k, v in r.items() if k != "photo"}
     out["hasPhoto"] = bool(r.get("photo"))
+    if not owner:
+        out.pop("phone", None)
     return out
 
 
@@ -448,6 +493,20 @@ class Handler(BaseHTTPRequestHandler):
         return bool(sent) and hmac.compare_digest(notice.get("ownerKey", ""), sent)
 
     # ── 라우팅 ────────────────────────────────
+    # 예상 못 한 입력에도 서버가 응답 없이 끊기지 않게 전 요청을 감싼다
+    def handle_one_request(self):
+        try:
+            return super().handle_one_request()
+        except (BrokenPipeError, ConnectionResetError):
+            self.close_connection = True
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            try:
+                self._json({"error": "요청을 처리하지 못했어요"}, 400)
+            except Exception:
+                self.close_connection = True
+
     def do_GET(self):
         path = urlparse(self.path).path
 
@@ -487,14 +546,18 @@ class Handler(BaseHTTPRequestHandler):
                 if not n:
                     self._json({"error": "공고를 찾을 수 없어요"}, 404)
                     return
-                self._json([light_report(r) for r in n.get("reports", [])])
+                owner = self._owner_ok(n)
+                self._json([light_report(r, owner) for r in n.get("reports", [])])
         elif path == "/api/photo":
-            # 사진 원본은 제보 상세를 열 때만 따로 받아간다
+            # 사진 원본은 제보 상세를 열 때만 따로 받아간다 (보호자 전용)
             with LOCK:
                 db = load_db()
                 n = self._find_notice(db)
                 if not n:
                     self._json({"error": "공고를 찾을 수 없어요"}, 404)
+                    return
+                if not self._owner_ok(n):
+                    self._json({"error": "이 공고를 관리할 권한이 없어요"}, 403)
                     return
                 try:
                     rid = int((self._query().get("id") or ["0"])[0])
@@ -538,6 +601,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._create_report_locked(body)
 
     def _create_report_locked(self, body):
+        if not rate_ok(self._client_ip(), "report"):
+            self._json({"error": "제보가 너무 빠르게 반복돼요. 잠시 후 다시 시도해주세요"}, 429)
+            return
         db = load_db()
         notice = db["notices"].get(str(body.get("slug") or ""))
         if not notice:
@@ -547,6 +613,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         if not body.get("seenAt") or body.get("x") is None or body.get("y") is None:
             self._json({"error": "seenAt, x, y는 필수입니다"}, 400)
+            return
+        # 좌표는 지도 프레임(820x560) 안으로 — 화면 밖에 찍히지 않게
+        x, y = clamp_xy(body.get("x"), body.get("y"))
+        if x is None:
+            self._json({"error": "x, y는 숫자여야 합니다"}, 400)
+            return
+        seen_at = clean_time(body.get("seenAt"))
+        if not seen_at:
+            self._json({"error": "목격 시각은 시:분 형식이어야 합니다"}, 400)
             return
         # 방향(나침반/지도) — 0~360도, 북=0 시계방향. 없으면 핀만 표시
         try:
@@ -563,7 +638,7 @@ class Handler(BaseHTTPRequestHandler):
         reports = notice.setdefault("reports", [])
         report = {
             "id": max((r["id"] for r in reports), default=0) + 1,
-            "seenAt": str(body["seenAt"])[:5],
+            "seenAt": seen_at,
             "receivedAt": datetime.now().strftime("%H:%M"),
             "place": (str(body.get("place") or "").strip() or "지도에 찍은 위치")[:80],
             "dir": str(body.get("dir") or "방향 확인 안 됨")[:40],
@@ -574,7 +649,7 @@ class Handler(BaseHTTPRequestHandler):
             # 목격자가 남긴 연락처 — 보호자만 볼 수 있다(관리 API가 인증으로 보호됨)
             "phone": re.sub(r"[^\d+\-]", "", str(body.get("phone") or ""))[:20] or None,
             "contact": bool(body.get("contact")) or bool(body.get("phone")),
-            "x": round(float(body["x"])), "y": round(float(body["y"])),
+            "x": x, "y": y,
             "scene": str(body.get("scene") or "street")[:20],
             "photo": body.get("photo") if isinstance(body.get("photo"), str)
                      and str(body.get("photo")).startswith("data:image/") else None,
@@ -594,11 +669,18 @@ class Handler(BaseHTTPRequestHandler):
             return self._create_notice_locked(body)
 
     def _create_notice_locked(self, body):
+        if not rate_ok(self._client_ip(), "notice"):
+            self._json({"error": "공고를 너무 많이 만들었어요. 잠시 후 다시 시도해주세요"}, 429)
+            return
         if not str(body.get("dogName") or "").strip():
             self._json({"error": "강아지 이름은 필수입니다"}, 400)
             return
         if body.get("lostX") is None or body.get("lostY") is None:
             self._json({"error": "유실 위치를 지도에 찍어주세요"}, 400)
+            return
+        lost_x, lost_y = clamp_xy(body.get("lostX"), body.get("lostY"))
+        if lost_x is None:
+            self._json({"error": "유실 위치 좌표가 올바르지 않아요"}, 400)
             return
         pin = str(body.get("pin") or "").strip()
         if not re.fullmatch(r"\d{4}", pin):
@@ -637,8 +719,8 @@ class Handler(BaseHTTPRequestHandler):
                          f"{name}를 발견하면 잡으려 하지 말고 위치와 사진만 제보해주세요.", 200),
             "lostAt": s("lostAt", datetime.now().strftime("%Y-%m-%dT%H:%M"), 16),
             "lostPlace": s("lostPlace", "지도에 찍은 위치", 80),
-            "lostX": round(float(body["lostX"])),
-            "lostY": round(float(body["lostY"])),
+            "lostX": lost_x,
+            "lostY": lost_y,
             "centerLat": geo("centerLat", 37.6447),
             "centerLng": geo("centerLng", 127.0763),
             "photo": img("photo"),      # 전단지에 쓰는 강아지 사진
@@ -762,11 +844,45 @@ class Handler(BaseHTTPRequestHandler):
             body = self._body()
             if body is None:
                 return
-            status = str(body.get("status") or "").strip()
-            if status not in {"찾는 중", "찾았어요"}:
-                self._json({"error": "status는 '찾는 중' 또는 '찾았어요'여야 합니다"}, 400)
+            # 상태만 바꾸는 경우
+            if "status" in body and len(body) == 1:
+                status = str(body.get("status") or "").strip()
+                if status not in {"찾는 중", "찾았어요"}:
+                    self._json({"error": "status는 '찾는 중' 또는 '찾았어요'여야 합니다"}, 400)
+                    return
+                notice["status"] = status
+                save_db(notice["slug"])
+                self._json(public_notice(notice))
                 return
-            notice["status"] = status
+
+            # 공고 내용 수정 — 보낸 항목만 바꾼다
+            TEXT = {"dogName": 20, "breed": 60, "age": 60, "weight": 60,
+                    "personality": 60, "health": 60, "caution": 200,
+                    "lostAt": 16, "lostPlace": 80}
+            for key, n in TEXT.items():
+                if key in body:
+                    v = str(body.get(key) or "").strip()[:n]
+                    if key == "dogName" and not v:
+                        self._json({"error": "강아지 이름은 비울 수 없어요"}, 400)
+                        return
+                    if v:
+                        notice[key] = v
+            if "lostX" in body and "lostY" in body:
+                lx, ly = clamp_xy(body.get("lostX"), body.get("lostY"))
+                if lx is None:
+                    self._json({"error": "유실 위치 좌표가 올바르지 않아요"}, 400)
+                    return
+                notice["lostX"], notice["lostY"] = lx, ly
+            for key in ("centerLat", "centerLng"):
+                if key in body:
+                    try:
+                        notice[key] = float(body[key])
+                    except (TypeError, ValueError):
+                        pass
+            for key in ("photo", "thumb"):
+                if key in body:
+                    v = body.get(key)
+                    notice[key] = v if isinstance(v, str) and v.startswith("data:image/") else None
             save_db(notice["slug"])
             self._json(public_notice(notice))
             return

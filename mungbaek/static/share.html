@@ -295,7 +295,7 @@ async function buildFlyer(){
   try{
     const cv=await drawFlyer(notice);
     flyerUrl=cv.toDataURL("image/png");
-    $("#flyerWrap").innerHTML=`<img id="flyerImg" src="${flyerUrl}" alt="${notice.dogName} 전단지">`;
+    $("#flyerWrap").innerHTML=`<img id="flyerImg" src="${flyerUrl}" alt="${esc(notice.dogName)} 전단지">`;
   }catch(e){
     $("#flyerWrap").innerHTML='<div class="flyer-loading">전단지를 만들지 못했어요 — 새로고침해 주세요</div>';
   }

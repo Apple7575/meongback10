@@ -90,12 +90,12 @@ function render(){
     const when=(d.lostAt||"").replace("T"," ").slice(5,16);
     const dist=(myPos && d.centerLat) ? distKm(myPos.lat,myPos.lng,d.centerLat,d.centerLng) : null;
     return {d, dist, html:`
-      <a class="dog" href="/r/${d.slug}">
-        <span class="dog-img">${d.thumb?`<img src="${d.thumb}" alt="">`:dogSvg}</span>
+      <a class="dog" href="/r/${encodeURIComponent(d.slug)}">
+        <span class="dog-img">${d.thumb?`<img src="${esc(d.thumb)}" alt="">`:dogSvg}</span>
         <span class="dog-body">
-          <span class="dog-name">${d.dogName}</span>
-          <span class="dog-meta">${d.breed||""} · ${d.age||""}</span>
-          <span class="dog-where">${when} · ${d.lostPlace||""}</span>
+          <span class="dog-name">${esc(d.dogName)}</span>
+          <span class="dog-meta">${esc(d.breed||"")} · ${esc(d.age||"")}</span>
+          <span class="dog-where">${esc(when)} · ${esc(d.lostPlace||"")}</span>
         </span>
         ${dist!==null?`<span class="dog-dist">${fmtDist(dist)}</span>`:""}
       </a>`};

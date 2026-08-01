@@ -18,6 +18,11 @@
     }
   }
 
+  /* 제보 글자를 SVG에 넣기 전 이스케이프 (목격자 입력이 태그로 해석되지 않게) */
+  const E = (v) => String(v == null ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
   const STATUS_COLOR = {
     trusted: "var(--trust)", pending: "var(--pending)",
     important: "var(--important)", hidden: "var(--hidden)",
@@ -79,21 +84,21 @@
   /* ── SVG 마커 빌더 ── */
   function svgPinMarker(r, active) {
     const c = color(r.status), x = r.x, y = r.y, sw = active ? 3.5 : 2.5;
-    return `<g class="pin" data-id="${r.id}" tabindex="0" role="button" aria-label="${r.seenAt} ${r.place} 제보">
+    return `<g class="pin" data-id="${+r.id}" tabindex="0" role="button" aria-label="${E(r.seenAt)} ${E(r.place)} 제보">
       <g class="pin-body">
         <path d="M${x} ${y + 16} C${x - 13} ${y + 2} ${x - 13} ${y - 14} ${x} ${y - 14} C${x + 13} ${y - 14} ${x + 13} ${y + 2} ${x} ${y + 16} Z"
           fill="${c}" stroke="var(--surface)" stroke-width="${sw}"/>
         <circle cx="${x}" cy="${y - 2}" r="5" fill="var(--surface)"/>
       </g>
       <rect x="${x - 27}" y="${y - 44}" width="54" height="21" rx="10.5" fill="var(--surface)" stroke="${c}" stroke-width="1.5"/>
-      <text x="${x}" y="${y - 29}" text-anchor="middle" class="time-chip" fill="${c}">${r.seenAt}</text>
+      <text x="${x}" y="${y - 29}" text-anchor="middle" class="time-chip" fill="${c}">${E(r.seenAt)}</text>
     </g>`;
   }
   function svgArrowMarker(r, active) {
     const c = color(r.status), x = r.x, y = r.y, sw = active ? 3.5 : 2.5;
-    return `<g class="pin" data-id="${r.id}" tabindex="0" role="button" aria-label="${r.seenAt} ${r.place} ${bearingToKo(r.bearing) || "방향"} 제보">
+    return `<g class="pin" data-id="${+r.id}" tabindex="0" role="button" aria-label="${E(r.seenAt)} ${E(r.place)} ${bearingToKo(r.bearing) || "방향"} 제보">
       <g class="pin-body">
-        <g transform="rotate(${r.bearing} ${x} ${y})">
+        <g transform="rotate(${+r.bearing || 0} ${x} ${y})">
           <path d="M${x} ${y} L${x} ${y - 22}" stroke="${c}" stroke-width="4.5" stroke-linecap="round"/>
           <path d="M${x} ${y - 34} L${x - 8.5} ${y - 19} L${x + 8.5} ${y - 19} Z"
             fill="${c}" stroke="var(--surface)" stroke-width="1.5" stroke-linejoin="round"/>
@@ -101,7 +106,7 @@
         <circle cx="${x}" cy="${y}" r="6" fill="${c}" stroke="var(--surface)" stroke-width="${sw}"/>
       </g>
       <rect x="${x - 27}" y="${y + 10} " width="54" height="21" rx="10.5" fill="var(--surface)" stroke="${c}" stroke-width="1.5"/>
-      <text x="${x}" y="${y + 25}" text-anchor="middle" class="time-chip" fill="${c}">${r.seenAt}</text>
+      <text x="${x}" y="${y + 25}" text-anchor="middle" class="time-chip" fill="${c}">${E(r.seenAt)}</text>
     </g>`;
   }
   const svgMarker = (r, active) =>
@@ -194,13 +199,13 @@
         layer("trail").innerHTML = pts.length > 1 ?
           `<path class="trail" d="${path}" fill="none" stroke="var(--navy)" stroke-width="2.6" stroke-linecap="round" opacity=".85"/>` : "";
 
-        let html = `<g class="pin" tabindex="0" role="button" aria-label="마지막 목격 지점 ${lostPoint.place} ${lostPoint.label}">
+        let html = `<g class="pin" tabindex="0" role="button" aria-label="마지막 목격 지점 ${E(lostPoint.place)} ${E(lostPoint.label)}">
           <g class="pin-body">
             <circle cx="${lostPoint.x}" cy="${lostPoint.y}" r="15" fill="var(--navy)" stroke="var(--surface)" stroke-width="3"/>
             <text x="${lostPoint.x}" y="${lostPoint.y + 5}" text-anchor="middle" style="font-size:14px" fill="var(--on-navy)">★</text>
           </g>
           <rect x="${lostPoint.x - 46}" y="${lostPoint.y - 46}" width="92" height="22" rx="11" fill="var(--navy)"/>
-          <text x="${lostPoint.x}" y="${lostPoint.y - 31}" text-anchor="middle" class="time-chip" fill="var(--on-navy)">${lostPoint.label} 유실</text>
+          <text x="${lostPoint.x}" y="${lostPoint.y - 31}" text-anchor="middle" class="time-chip" fill="var(--on-navy)">${E(lostPoint.label)} 유실</text>
         </g>`;
         reports.forEach(r => { html += svgMarker(r, activeId === r.id); });
         layer("pins").innerHTML = html;
@@ -230,12 +235,12 @@
       el.className = "kpin" + (star ? " kp-star" : "");
       el.style.color = cc;
       if (bearing === null || bearing === undefined) {
-        el.innerHTML = `<span class="kp-chip">${chip}</span><span class="kp-drop"><span class="kp-dot"></span></span>`;
+        el.innerHTML = `<span class="kp-chip">${E(chip)}</span><span class="kp-drop"><span class="kp-dot"></span></span>`;
       } else {
         el.classList.add("karrow");
         el.innerHTML =
-          `<span class="ka-shaft" style="transform:rotate(${bearing}deg)"></span>` +
-          `<span class="ka-dot"></span><span class="ka-chip">${chip}</span>`;
+          `<span class="ka-shaft" style="transform:rotate(${+bearing || 0}deg)"></span>` +
+          `<span class="ka-dot"></span><span class="ka-chip">${E(chip)}</span>`;
       }
       if (onClick) el.addEventListener("click", onClick);
       return el;

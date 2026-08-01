@@ -135,6 +135,10 @@
   .dog-more{display:grid; gap:12px}
   .add-notice{font-size:12.5px; font-weight:700; color:var(--navy);
     text-decoration:none; text-align:center; padding:4px}
+  .edit-btn{display:block; width:100%; padding:12px; border-radius:12px; text-align:center;
+    font-size:13.5px; font-weight:800; text-decoration:none;
+    border:1.5px solid var(--line); color:var(--ink-soft); background:var(--surface)}
+  .edit-btn:hover{border-color:var(--navy); color:var(--navy)}
   .found-btn{width:100%; padding:12px; border-radius:12px; font-size:13.5px; font-weight:800;
     border:1.5px solid var(--trust); color:var(--trust); background:var(--trust-bg)}
   .found-btn.done{border-color:var(--line); color:var(--ink-faint); background:var(--surface-2)}
@@ -349,6 +353,7 @@
       <div class="dog-more" id="dogMore" hidden>
         <div class="dog-facts" id="dogFacts"></div>
         <div class="caution" id="dogCaution"></div>
+        <a class="edit-btn" id="editBtn" href="/new">공고 내용 수정하기</a>
         <button class="found-btn" id="foundBtn" type="button"></button>
         <a class="add-notice" href="/new">＋ 다른 강아지 공고 등록</a>
       </div>
@@ -524,11 +529,11 @@ async function loadNotice(){
   $("#dogMeta").textContent=`${notice.breed} · ${notice.age} · ${notice.weight}`;
   const lostT=notice.lostAt.slice(11,16);
   $("#dogFacts").innerHTML=`
-    <div class="fact"><div class="k">마지막 목격 위치</div><div class="v">${notice.lostPlace.replace("노원구 ","")}</div></div>
-    <div class="fact"><div class="k">마지막 목격 시각</div><div class="v">오늘 ${lostT}</div></div>
-    <div class="fact"><div class="k">성격</div><div class="v">${notice.personality}</div></div>
-    <div class="fact"><div class="k">건강</div><div class="v">${notice.health}</div></div>`;
-  $("#dogCaution").innerHTML=`<b>발견 시 주의</b> · ${notice.caution}`;
+    <div class="fact"><div class="k">마지막 목격 위치</div><div class="v">${esc(notice.lostPlace)}</div></div>
+    <div class="fact"><div class="k">마지막 목격 시각</div><div class="v">오늘 ${esc(lostT)}</div></div>
+    <div class="fact"><div class="k">성격</div><div class="v">${esc(notice.personality)}</div></div>
+    <div class="fact"><div class="k">건강</div><div class="v">${esc(notice.health)}</div></div>`;
+  $("#dogCaution").innerHTML=`<b>발견 시 주의</b> · ${esc(notice.caution)}`;
   /* 모바일 요약 스트립 */
   $("#mStripName").textContent=notice.dogName;
   $("#mStripStatus").textContent=notice.status;
@@ -640,12 +645,12 @@ function renderList(){
       <button class="report-item ${r.status==="hidden"?"dim":""} ${activeReport===r.id?"active":""}" data-id="${r.id}" type="button">
       <span class="thumb" aria-hidden="true">${thumbHtml(r)}</span>
       <span class="ri-body">
-        <span class="ri-top"><span class="seen-time">${r.seenAt}</span>
+        <span class="ri-top"><span class="seen-time">${esc(r.seenAt)}</span>
           <span class="badge b-${st.cls}">${st.label}</span>
           ${newIds.has(r.id)?'<span class="badge b-new">NEW</span>':''}
           ${r.phone?`<span class="ri-tel ic" title="연락처 있음">${Icons.svg("phone")}</span>`:''}</span>
-        <span class="ri-place">${r.place}</span>
-        <span class="ri-sub"><span class="dir">${r.dir}</span><span>접수 ${r.receivedAt}</span></span>
+        <span class="ri-place">${esc(r.place)}</span>
+        <span class="ri-sub"><span class="dir">${esc(r.dir)}</span><span>접수 ${esc(r.receivedAt)}</span></span>
       </span></button>
       <div class="ri-quick">
         <button class="q-btn q-trust ${r.status==="trusted"?"on":""}" data-q="trusted" data-id="${r.id}" type="button">신뢰</button>
@@ -692,8 +697,8 @@ function openDetail(id){
   $("#dDir").textContent=r.dir;
   $("#dMemo").textContent=r.memo?("“"+r.memo+"”"):"작성된 메모가 없어요";
   $("#dContact").innerHTML=r.phone
-    ? `<a class="call-btn" href="tel:${r.phone}"><span class="ic">${Icons.svg("phone")}</span> ${r.phone} 전화하기</a>
-       <a class="sms-btn" href="sms:${r.phone}">문자</a>`
+    ? `<a class="call-btn" href="tel:${esc(r.phone)}"><span class="ic">${Icons.svg("phone")}</span> ${esc(r.phone)} 전화하기</a>
+       <a class="sms-btn" href="sms:${esc(r.phone)}">문자</a>`
     : `<span class="contact-no"><span class="ic">${Icons.svg("phone-off")}</span> 제보자가 연락처를 남기지 않았어요</span>`;
   $("#statusActions").innerHTML=["trusted","pending","hidden","important"].map(k=>{
     const s=STATUS[k];
@@ -934,7 +939,7 @@ async function renderNoticeSwitch(){
   }));
   $("#nsList").innerHTML=infos.map(i=>
     `<button class="ns-tab ${i.slug===mySlug?"on":""}" data-slug="${i.slug}" type="button">
-       ${i.name}${i.found?'<span class="ns-found">찾음</span>':`<span class="ns-cnt">${i.count}</span>`}
+       ${esc(i.name)}${i.found?'<span class="ns-found">찾음</span>':`<span class="ns-cnt">${esc(i.count)}</span>`}
      </button>`).join("");
   $("#nsList").querySelectorAll(".ns-tab").forEach(b=>b.addEventListener("click",()=>{
     if(b.dataset.slug===mySlug) return;
@@ -958,8 +963,9 @@ function showLanding(){
 
   mySlug = await resolveOwner();
   if(!mySlug){ showLanding(); return; }
-  /* 공유 링크는 내가 보는 공고 기준으로 */
+  /* 공유·수정 링크는 내가 보는 공고 기준으로 */
   document.querySelectorAll('a[href="/share"]').forEach(a=>a.href="/share?slug="+encodeURIComponent(mySlug));
+  $("#editBtn").href="/new?edit="+encodeURIComponent(mySlug);
 
   try{ await loadNotice(); }
   catch(e){
